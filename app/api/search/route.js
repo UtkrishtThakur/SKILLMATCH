@@ -1,17 +1,22 @@
 import { NextResponse } from "next/server";
-import dbConnect from "@/lib/db";
-import User from "@/models/User";
 import jwt from "jsonwebtoken";
+import connectDB from "@/lib/db";
+import User from "@/models/User";
 
 export async function GET(req) {
   try {
-    await dbConnect();
+    await connectDB();
 
-    // ✅ Get JWT from headers
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { searchParams } = new URL(req.url);
+    const query = searchParams.get("query")?.trim();
+
+    if (!query) {
+      return NextResponse.json({ users: [] }, { status: 200 });
     }
+
+    // ✅ Auth
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const token = authHeader.split(" ")[1];
     let decoded;
@@ -21,23 +26,25 @@ export async function GET(req) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    const url = new URL(req.url);
-    const skillQuery = url.searchParams.get("skill")?.trim() || "";
-    const currentUserId = url.searchParams.get("currentUserId");
+    // 🔍 Build regex for search
+    const regex = new RegExp(query, "i");
 
-    if (!skillQuery) {
-      return NextResponse.json({ users: [] }, { status: 200 });
-    }
-
-    // ✅ Find users who have the skill, excluding current user
+    // 🔹 Search users
     const users = await User.find({
-      skills: { $regex: new RegExp(skillQuery, "i") },
-      _id: { $ne: currentUserId },
-    }).select("name email skills description profilePhoto");
+      _id: { $ne: decoded.id }, // exclude logged-in user
+      skills: { $exists: true, $ne: [] }, // must have skills
+      $or: [
+        { name: regex },
+        { description: regex },
+        { skills: regex },
+      ],
+    })
+      .select("name skills description projects links profilePhoto")
+      .limit(20);
 
     return NextResponse.json({ users }, { status: 200 });
   } catch (err) {
-    console.error("Search error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("Search API error:", err);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
