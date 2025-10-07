@@ -76,8 +76,34 @@ export default function SearchPage() {
     setLoading(false);
   };
 
-  const handleConnect = (name) => {
-    alert(`Connection request sent to ${name}! (Mock action for now)`);
+  const handleConnect = async (receiverId, name) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("Please login first!");
+        return;
+      }
+
+      const res = await fetch("/api/connect", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ receiverId }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        alert(`Connection request sent to ${name}!`);
+      } else {
+        alert(data.error || "Failed to send request");
+      }
+    } catch (err) {
+      console.error("Connect error:", err);
+      alert("Error sending request.");
+    }
   };
 
   return (
@@ -264,7 +290,7 @@ export default function SearchPage() {
                 </div>
               )}
               <button
-                onClick={() => handleConnect(user.name)}
+                onClick={() => handleConnect(user._id, user.name)} // ✅ FIXED
                 className="mt-auto bg-gradient-to-r from-purple-400 to-pink-500 px-6 py-2 rounded-3xl font-semibold hover:scale-105 transition-transform shadow-lg focus:outline-none focus:ring-4 focus:ring-pink-400 select-none"
                 aria-label={`Send connection request to ${user.name}`}
               >

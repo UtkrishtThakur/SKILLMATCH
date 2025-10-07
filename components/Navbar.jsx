@@ -1,18 +1,18 @@
-'use client'
+'use client';
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 const Navbar = () => {
-  const [user, setUser] = useState(null); // stores user object
+  const [user, setUser] = useState(null);
   const pathname = usePathname();
   const router = useRouter();
 
-  // Check localStorage for token/user on mount and whenever pathname changes
+  // Check localStorage for token/user on mount or pathname change
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     setUser(storedUser ? JSON.parse(storedUser) : null);
-  }, [pathname]); // will run whenever route changes
+  }, [pathname]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -23,6 +23,7 @@ const Navbar = () => {
 
   const renderButtons = () => {
     if (!user) {
+      // Not logged in → show login/register
       return (
         <>
           <Link
@@ -40,9 +41,21 @@ const Navbar = () => {
         </>
       );
     } else {
+      // Logged-in user
       const buttons = [];
 
-      // 🆕 If on landing page → show "Go to Profile"
+      // 💬 Always show "Go to Connect"
+      buttons.push(
+        <Link
+          key="connect"
+          href={`/connect/${user._id}`}
+          className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-400 to-indigo-500 text-white font-medium shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition"
+        >
+          Go to Connect
+        </Link>
+      );
+
+      // Dynamic navigation options
       if (pathname === "/") {
         buttons.push(
           <Link
@@ -53,9 +66,7 @@ const Navbar = () => {
             Go to Profile
           </Link>
         );
-      }
-      // If on search page → go to profile
-      else if (pathname.startsWith("/search")) {
+      } else if (pathname.startsWith("/search")) {
         buttons.push(
           <Link
             key="profile"
@@ -65,9 +76,7 @@ const Navbar = () => {
             Go to Profile
           </Link>
         );
-      }
-      // If on profile page → go to search
-      else if (pathname.startsWith("/profile")) {
+      } else if (pathname.startsWith("/profile")) {
         buttons.push(
           <Link
             key="search"
@@ -77,9 +86,7 @@ const Navbar = () => {
             Go to Search
           </Link>
         );
-      }
-      // Any other page → go to search
-      else {
+      } else {
         buttons.push(
           <Link
             key="search"
@@ -91,7 +98,7 @@ const Navbar = () => {
         );
       }
 
-      // Always add logout button
+      // 🚪 Logout Button
       buttons.push(
         <button
           key="logout"
@@ -107,13 +114,15 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="w-full bg-blue-950 px-6 py-4 shadow-md">
+    <nav className="w-full bg-blue-950 px-6 py-4 shadow-md sticky top-0 z-50">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-extrabold tracking-wide bg-gradient-to-r from-cyan-400 via-blue-300 to-indigo-400 bg-clip-text text-transparent font-[Poppins]">
           <Link href="/">SkillMatch</Link>
         </h1>
 
-        <div className="flex gap-4">{renderButtons()}</div>
+        <div className="flex gap-4 items-center">
+          {renderButtons()}
+        </div>
       </div>
     </nav>
   );
