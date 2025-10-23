@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "react-hot-toast";
 
@@ -135,6 +136,14 @@ export default function ConnectPage({ params }) {
 
   const renderCard = (req, type) => {
     const user = type === "received" ? req.from : type === "sent" ? req.to : req.user;
+    // Guard against missing user data
+    if (!user) {
+      return (
+        <div key={req._id || req.connectDocId} className="bg-gray-800 rounded-2xl p-4">
+          <p className="text-sm text-gray-300">User data missing for this connection.</p>
+        </div>
+      );
+    }
     const title = type === "received" ? `${user.name} sent you a request` : type === "sent" ? `Request to ${user.name}` : user.name;
 
     return (
@@ -154,7 +163,7 @@ export default function ConnectPage({ params }) {
           <p className="text-sm text-gray-300 truncate">{(user.skills || []).join(", ")}</p>
           <p className="text-xs text-gray-400 mt-1">{user.email}</p>
 
-          {type === "received" && (
+          {type === "received" && user && (
             <div className="flex gap-3 mt-3">
               <button
                 onClick={() => handleAction("accept", req._id)}
@@ -171,7 +180,7 @@ export default function ConnectPage({ params }) {
             </div>
           )}
 
-          {type === "sent" && (
+          {type === "sent" && user && (
             <div className="flex flex-col mt-2">
               <p className="text-sm text-yellow-400 font-medium">Pending...</p>
               <button
@@ -183,7 +192,7 @@ export default function ConnectPage({ params }) {
             </div>
           )}
 
-          {type === "connection" && (
+          {type === "connection" && user && (
             <div className="flex gap-3 mt-3">
               <button
                 onClick={() => handleAction("remove", req.connectDocId)}
@@ -191,6 +200,7 @@ export default function ConnectPage({ params }) {
               >
                 Remove
               </button>
+              <ChatButton userId={user._id} />
             </div>
           )}
         </div>
@@ -246,5 +256,44 @@ export default function ConnectPage({ params }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function ChatButton({ userId }) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  const handleChat = async () => {
+    setLoading(true);
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const res = await fetch(`/api/chat/conversations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ receiverId: userId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        console.error('Conversation create failed', data);
+        return;
+      }
+      const conv = data.conversation ?? data.conversationId ?? data.conversation?._id;
+      const convId = conv._id ? conv._id : data.conversationId ? data.conversationId : conv;
+      if (convId) router.push(`/chat/${convId}`);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleChat}
+      disabled={loading}
+      className="bg-indigo-500 px-3 py-1 rounded-md text-sm hover:bg-indigo-600 transition"
+    >
+      {loading ? "Opening..." : "Chat"}
+    </button>
   );
 }

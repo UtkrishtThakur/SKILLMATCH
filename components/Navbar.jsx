@@ -8,10 +8,18 @@ const Navbar = () => {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Check localStorage for token/user on mount or pathname change
+  // 🔹 Check user on mount or path change
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
-    setUser(storedUser ? JSON.parse(storedUser) : null);
+    const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+    setUser(parsedUser);
+
+    // 🔹 Auto-logout if user opens login page
+    if (pathname.startsWith("/auth/login")) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      setUser(null);
+    }
   }, [pathname]);
 
   const handleLogout = () => {
@@ -21,9 +29,10 @@ const Navbar = () => {
     router.push("/");
   };
 
+  // 🔹 Dynamic button generator
   const renderButtons = () => {
     if (!user) {
-      // Not logged in → show login/register
+      // Not logged in
       return (
         <>
           <Link
@@ -40,77 +49,43 @@ const Navbar = () => {
           </Link>
         </>
       );
-    } else {
-      // Logged-in user
-      const buttons = [];
+    }
 
-      // 💬 Always show "Go to Connect"
-      buttons.push(
-        <Link
-          key="connect"
-          href={`/connect/${user._id}`}
-          className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-400 to-indigo-500 text-white font-medium shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition"
-        >
-          Go to Connect
-        </Link>
-      );
+    // Logged-in user
+    const routes = [
+      { key: "connect", path: `/connect/${user._id}`, label: "Connect", gradient: "from-blue-400 to-indigo-500" },
+      { key: "search", path: `/search/${user._id}`, label: "Search", gradient: "from-green-400 to-teal-500" },
+      { key: "profile", path: `/profile/${user._id}`, label: "Profile", gradient: "from-purple-400 to-pink-500" },
+      // Chat should point to the chat listing page; use /chat (server will show user's conversations)
+      { key: "chat", path: `/chat`, label: "Chat", gradient: "from-yellow-400 to-orange-500" }
+    ];
+    return (
+      <>
+        {routes
+          // Build a stable prefix for each route and hide links that match current pathname prefix
+          .filter((route) => {
+            const prefix = route.path === "/chat" ? "/chat" : (route.path.split("/")[1] ? `/${route.path.split("/")[1]}` : route.path);
+            return !pathname.startsWith(prefix);
+          })
+          .map((route) => (
+            <Link
+              key={route.key}
+              href={route.path}
+              className={`px-4 py-2 rounded-xl bg-gradient-to-r ${route.gradient} text-white font-medium shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition`}
+            >
+              {route.label}
+            </Link>
+          ))}
 
-      // Dynamic navigation options
-      if (pathname === "/") {
-        buttons.push(
-          <Link
-            key="profile"
-            href={`/profile/${user._id}`}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-400 to-pink-500 text-white font-medium shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition"
-          >
-            Go to Profile
-          </Link>
-        );
-      } else if (pathname.startsWith("/search")) {
-        buttons.push(
-          <Link
-            key="profile"
-            href={`/profile/${user._id}`}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-400 to-pink-500 text-white font-medium shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition"
-          >
-            Go to Profile
-          </Link>
-        );
-      } else if (pathname.startsWith("/profile")) {
-        buttons.push(
-          <Link
-            key="search"
-            href={`/search/${user._id}`}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-green-400 to-teal-500 text-white font-medium shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition"
-          >
-            Go to Search
-          </Link>
-        );
-      } else {
-        buttons.push(
-          <Link
-            key="search"
-            href={`/search/${user._id}`}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-green-400 to-teal-500 text-white font-medium shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition"
-          >
-            Go to Search
-          </Link>
-        );
-      }
-
-      // 🚪 Logout Button
-      buttons.push(
+        {/* 🚪 Logout Button */}
         <button
-          key="logout"
           onClick={handleLogout}
           className="px-4 py-2 rounded-xl bg-red-500 text-white font-medium shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition"
         >
           Log Out
         </button>
-      );
-
-      return buttons;
-    }
+      </>
+    );
   };
 
   return (
@@ -119,7 +94,6 @@ const Navbar = () => {
         <h1 className="text-2xl font-extrabold tracking-wide bg-gradient-to-r from-cyan-400 via-blue-300 to-indigo-400 bg-clip-text text-transparent font-[Poppins]">
           <Link href="/">SkillMatch</Link>
         </h1>
-
         <div className="flex gap-4 items-center">
           {renderButtons()}
         </div>
