@@ -1,19 +1,56 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { toast } from "react-hot-toast";
+import Pusher from "pusher-js";
 
 export default function ChatBox({ conversationId, senderId, token, onMessageSent }) {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
 
+  // Keep track of optimistic message IDs
+  const optimisticIds = useRef(new Set());
+
+  // ---------------- Real-time Pusher listener ----------------
+  useEffect(() => {
+    if (!conversationId) return;
+
+    const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY, {
+      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
+      encrypted: true,
+    });
+
+    const channel = pusher.subscribe(`chat-${conversationId}`);
+
+    const handleIncoming = (msg) => {
+      if (!msg) return;
+
+      // Ignore messages sent by self (by tempId)
+      if (msg.tempId && optimisticIds.current.has(msg.tempId)) return;
+
+      if (onMessageSent) onMessageSent(msg);
+    };
+
+    channel.bind("new-message", handleIncoming);
+
+    return () => {
+      channel.unbind("new-message", handleIncoming);
+      pusher.unsubscribe(`chat-${conversationId}`);
+    };
+  }, [conversationId, onMessageSent]);
+
+  // ---------------- Sending message ----------------
   const handleSend = async () => {
     if (!message.trim()) return;
     if (!conversationId || !token) return toast.error("Cannot send message");
+
     setSending(true);
     const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
-    const storedUser = typeof window !== "undefined" ? JSON.parse(localStorage.getItem("user") || "null") : null;
+    const storedUser = typeof window !== "undefined"
+      ? JSON.parse(localStorage.getItem("user") || "null")
+      : null;
+
     const optimistic = {
       _id: tempId,
       conversationId,
@@ -25,10 +62,14 @@ export default function ChatBox({ conversationId, senderId, token, onMessageSent
         profilePhoto: storedUser?.profilePhoto || null,
       },
       optimistic: true,
+      tempId,
     };
 
-    // call parent immediately to show optimistic UI
-    if (typeof onMessageSent === "function") onMessageSent(optimistic);
+    // Add to tempId set
+    optimisticIds.current.add(tempId);
+
+    // Show optimistic message
+    if (onMessageSent) onMessageSent(optimistic);
 
     try {
       const res = await fetch(`/api/chat/${conversationId}`, {
@@ -37,25 +78,29 @@ export default function ChatBox({ conversationId, senderId, token, onMessageSent
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ content: message, tempId }), // server will echo tempId
+        body: JSON.stringify({ content: message, tempId }),
       });
+
       const data = await res.json();
+
       if (!res.ok) {
         toast.error(data.error || data.message || "Failed to send message");
-        // remove optimistic by notifying parent with a failure shape (parent should remove by id)
-        if (typeof onMessageSent === "function") onMessageSent({ _id: tempId, failed: true });
+        if (onMessageSent) onMessageSent({ _id: tempId, failed: true });
       } else {
-        // server will emit canonical message via socket; we also include canonical in response
-        // ensure input cleared
         setMessage("");
-        // If response contains canonical message synchronously, parent can reconcile
+
+        // Remove tempId after successful send
+        optimisticIds.current.delete(tempId);
+
+        // Reconcile optimistic message with canonical one
         const canonical = data.data || data.message || null;
-        if (canonical && typeof onMessageSent === "function") onMessageSent({ ...canonical, tempId: data.tempId ?? null });
+        if (canonical && onMessageSent)
+          onMessageSent({ ...canonical, tempId });
       }
     } catch (err) {
       console.error(err);
       toast.error("Network error");
-      if (typeof onMessageSent === "function") onMessageSent({ _id: tempId, failed: true });
+      if (onMessageSent) onMessageSent({ _id: tempId, failed: true });
     } finally {
       setSending(false);
     }
