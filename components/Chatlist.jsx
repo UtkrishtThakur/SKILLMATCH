@@ -10,7 +10,8 @@ export default function ChatList({ currentUserId, onSelectConversation }) {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
   const router = useRouter();
 
   // ---------------- Fetch initial conversations ----------------
@@ -49,23 +50,24 @@ export default function ChatList({ currentUserId, onSelectConversation }) {
       encrypted: true,
     });
 
-    // subscribe to user's private channel
     const channel = pusher.subscribe(`user-${currentUserId}`);
 
     const handleNewMessage = (payload) => {
       if (!payload?.conversationId || !payload?.message) return;
 
       setConversations((prev) => {
-        const exists = prev.find((c) => String(c._id) === String(payload.conversationId));
+        const exists = prev.find(
+          (c) => String(c._id) === String(payload.conversationId)
+        );
         if (exists) {
-          // update lastMessage
+          // Update last message
           return prev.map((c) =>
             String(c._id) === String(payload.conversationId)
               ? { ...c, lastMessage: payload.message }
               : c
           );
         } else {
-          // optionally, fetch new conversation details or add placeholder
+          // Optionally fetch new conversation details if needed
           return prev;
         }
       });
@@ -79,18 +81,44 @@ export default function ChatList({ currentUserId, onSelectConversation }) {
     };
   }, [currentUserId]);
 
+  // ---------------- Loading & Empty states ----------------
   if (loading)
-    return <div className="p-4 text-gray-400 text-center">Loading chats...</div>;
+    return (
+      <div className="p-4 text-gray-400 text-center">Loading chats...</div>
+    );
 
   if (conversations.length === 0)
-    return <div className="p-4 text-gray-400 text-center">No conversations yet</div>;
+    return (
+      <div className="p-4 text-gray-400 text-center">No conversations yet</div>
+    );
 
+  // ---------------- Render Conversations ----------------
   return (
     <div className="flex flex-col gap-2 overflow-y-auto max-h-[80vh]">
       {conversations.map((conv) => {
         const members = conv.members ?? conv.participants ?? [];
-        const otherUser = members.find((m) => m._id !== currentUserId);
-        if (!otherUser) return null;
+
+        // Find the other participant (not the current user)
+        const otherUser =
+          members.find((m) => m?._id && m._id !== currentUserId) ||
+          members.find((id) => id !== currentUserId);
+
+        // Handle both object and ID-only forms
+        const otherUserName =
+          typeof otherUser === "object"
+            ? otherUser.name || otherUser.username || "Unknown User"
+            : "Unknown User";
+
+        const otherUserPhoto =
+          typeof otherUser === "object"
+            ? otherUser.profilePhoto || "/default-avatar.png"
+            : "/default-avatar.png";
+
+        const lastMsg =
+          conv.lastMessage?.content ??
+          (typeof otherUser === "object"
+            ? (otherUser.skills || []).join(", ")
+            : "");
 
         return (
           <div
@@ -102,17 +130,15 @@ export default function ChatList({ currentUserId, onSelectConversation }) {
             className="flex items-center gap-3 p-3 rounded-xl hover:bg-blue-700 cursor-pointer transition-all"
           >
             <Image
-              src={otherUser.profilePhoto || "/default-avatar.png"}
-              alt={otherUser.name}
+              src={otherUserPhoto}
+              alt={otherUserName}
               width={50}
               height={50}
-              className="rounded-full border border-blue-500"
+              className="rounded-full border border-blue-500 object-cover"
             />
             <div className="flex-1">
-              <p className="text-white font-medium">{otherUser.name}</p>
-              <p className="text-gray-300 text-sm truncate">
-                {conv.lastMessage?.content ?? (otherUser.skills || []).join(", ")}
-              </p>
+              <p className="text-white font-medium">{otherUserName}</p>
+              <p className="text-gray-300 text-sm truncate">{lastMsg}</p>
             </div>
           </div>
         );

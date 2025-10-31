@@ -5,16 +5,15 @@ import { usePathname, useRouter } from "next/navigation";
 
 const Navbar = () => {
   const [user, setUser] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
-  // 🔹 Check user on mount or path change
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     const parsedUser = storedUser ? JSON.parse(storedUser) : null;
     setUser(parsedUser);
 
-    // 🔹 Auto-logout if user opens login page
     if (pathname.startsWith("/auth/login")) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
@@ -27,78 +26,173 @@ const Navbar = () => {
     localStorage.removeItem("user");
     setUser(null);
     router.push("/");
+    setMenuOpen(false);
   };
 
-  // 🔹 Dynamic button generator
-  const renderButtons = () => {
-    if (!user) {
-      // Not logged in
-      return (
-        <>
-          <Link
-            href="/auth/login"
-            className="px-4 py-2 rounded-xl text-gray-300 hover:text-white transition-colors"
-          >
-            Login
-          </Link>
-          <Link
-            href="/auth/register"
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-400 to-indigo-500 text-white font-medium shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition"
-          >
-            Get Started
-          </Link>
-        </>
-      );
-    }
-
-    // Logged-in user
-    const routes = [
-      { key: "connect", path: `/connect/${user._id}`, label: "Connect", gradient: "from-blue-400 to-indigo-500" },
-      { key: "search", path: `/search/${user._id}`, label: "Search", gradient: "from-green-400 to-teal-500" },
-      { key: "profile", path: `/profile/${user._id}`, label: "Profile", gradient: "from-purple-400 to-pink-500" },
-      // Chat should point to the chat listing page; use /chat (server will show user's conversations)
-      { key: "chat", path: `/chat`, label: "Chat", gradient: "from-yellow-400 to-orange-500" }
-    ];
-    return (
-      <>
-        {routes
-          // Build a stable prefix for each route and hide links that match current pathname prefix
-          .filter((route) => {
-            const prefix = route.path === "/chat" ? "/chat" : (route.path.split("/")[1] ? `/${route.path.split("/")[1]}` : route.path);
-            return !pathname.startsWith(prefix);
-          })
-          .map((route) => (
-            <Link
-              key={route.key}
-              href={route.path}
-              className={`px-4 py-2 rounded-xl bg-gradient-to-r ${route.gradient} text-white font-medium shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition`}
-            >
-              {route.label}
-            </Link>
-          ))}
-
-        {/* 🚪 Logout Button */}
-        <button
-          onClick={handleLogout}
-          className="px-4 py-2 rounded-xl bg-red-500 text-white font-medium shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition"
-        >
-          Log Out
-        </button>
-      </>
-    );
+  const toggleMenu = () => {
+    setMenuOpen(!menuOpen);
   };
+
+  const routes = [
+    { key: "connect", path: user ? `/connect/${user._id}` : "/connect", label: "Connect" },
+    { key: "search", path: user ? `/search/${user._id}` : "/search", label: "Search" },
+    { key: "profile", path: user ? `/profile/${user._id}` : "/profile", label: "Profile" },
+    { key: "chat", path: `/chat`, label: "Chat" },
+  ];
 
   return (
-    <nav className="w-full bg-blue-950 px-6 py-4 shadow-md sticky top-0 z-50">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-extrabold tracking-wide bg-gradient-to-r from-cyan-400 via-blue-300 to-indigo-400 bg-clip-text text-transparent font-[Poppins]">
-          <Link href="/">SkillMatch</Link>
-        </h1>
-        <div className="flex gap-4 items-center">
-          {renderButtons()}
+    <>
+      <nav className="fixed top-0 left-0 w-full bg-[#1d365e] rounded-b-3xl shadow-[0_10px_30px_rgba(29,54,94,0.5)] z-50 backdrop-filter backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between select-none">
+          {/* Brand */}
+          <h1 className="text-white text-3xl font-extrabold tracking-wide cursor-pointer bg-gradient-to-r from-white to-[#53ade0] bg-clip-text text-transparent select-text transition-transform duration-300 hover:scale-110">
+            <Link href="/">Skillmatch</Link>
+          </h1>
+
+          {/* Desktop Menu */}
+          <div className="hidden md:flex items-center gap-6">
+            {!user ? (
+              <>
+                <Link
+                  href="/auth/login"
+                  className="text-white px-5 py-2 rounded-xl font-medium hover:bg-white/20 transition-colors drop-shadow-md hover:drop-shadow-lg transform hover:scale-105 active:scale-95 transition-transform"
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/auth/register"
+                  className="bg-gradient-to-r from-white to-[#53ade0] px-6 py-2 rounded-xl text-[#1d365e] font-semibold shadow-lg hover:shadow-2xl hover:scale-110 active:scale-95 transition-transform"
+                >
+                  Get Started
+                </Link>
+              </>
+            ) : (
+              <>
+                {routes
+                  .filter(
+                    (route) =>
+                      !pathname.startsWith(
+                        route.path.split("/")[1]
+                          ? `/${route.path.split("/")[1]}`
+                          : route.path
+                      )
+                  )
+                  .map((route) => (
+                    <Link
+                      key={route.key}
+                      href={route.path}
+                      className="bg-gradient-to-r from-white to-[#53ade0] px-6 py-2 rounded-xl text-[#1d365e] font-semibold shadow-lg hover:shadow-2xl hover:scale-110 active:scale-95 transition-transform"
+                    >
+                      {route.label}
+                    </Link>
+                  ))}
+                <button
+                  onClick={handleLogout}
+                  className="bg-pink-400 px-6 py-2 rounded-xl text-white font-semibold shadow-lg hover:shadow-2xl hover:scale-110 active:scale-95 transition-transform"
+                >
+                  Log Out
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            onClick={toggleMenu}
+            aria-label="Toggle menu"
+            className="md:hidden flex flex-col gap-1.5 focus:outline-none focus:ring-2 focus:ring-white rounded"
+          >
+            <span
+              className={`block h-0.5 w-7 bg-white rounded origin-left transition-transform ${
+                menuOpen ? "rotate-45 translate-y-[9px]" : ""
+              }`}
+            />
+            <span
+              className={`block h-0.5 w-7 bg-white rounded transition-opacity ${
+                menuOpen ? "opacity-0" : "opacity-100"
+              }`}
+            />
+            <span
+              className={`block h-0.5 w-7 bg-white rounded origin-left transition-transform ${
+                menuOpen ? "-rotate-45 -translate-y-[9px]" : ""
+              }`}
+            />
+          </button>
         </div>
-      </div>
-    </nav>
+
+        {/* Mobile Dropdown */}
+        <div
+          className={`md:hidden bg-[#1d365e] rounded-b-3xl overflow-hidden transition-max-height duration-500 ease-in-out ${
+            menuOpen ? "max-h-[500px] py-4" : "max-h-0 py-0"
+          }`}
+        >
+          {!user ? (
+            <div className="flex flex-col gap-4 px-6">
+              <Link
+                href="/auth/login"
+                className="text-white px-5 py-3 rounded-xl font-medium hover:bg-white/20 transition-colors drop-shadow-md text-center hover:drop-shadow-lg transform hover:scale-105 active:scale-95 transition-transform"
+                onClick={() => setMenuOpen(false)}
+              >
+                Login
+              </Link>
+              <Link
+                href="/auth/register"
+                className="bg-gradient-to-r from-white to-[#53ade0] px-6 py-3 rounded-xl text-[#1d365e] font-semibold shadow-lg text-center hover:shadow-2xl hover:scale-110 active:scale-95 transition-transform"
+                onClick={() => setMenuOpen(false)}
+              >
+                Get Started
+              </Link>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4 px-6">
+              {routes
+                .filter(
+                  (route) =>
+                    !pathname.startsWith(
+                      route.path.split("/")[1]
+                        ? `/${route.path.split("/")[1]}`
+                        : route.path
+                    )
+                )
+                .map((route) => (
+                  <Link
+                    key={route.key}
+                    href={route.path}
+                    className="bg-gradient-to-r from-white to-[#53ade0] px-6 py-3 rounded-xl text-[#1d365e] font-semibold shadow-lg text-center hover:shadow-2xl hover:scale-110 active:scale-95 transition-transform"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {route.label}
+                  </Link>
+                ))}
+              <button
+                onClick={handleLogout}
+                className="bg-pink-200 px-6 py-3 rounded-xl text-white font-semibold shadow-lg hover:shadow-2xl hover:scale-110 active:scale-95 transition-transform"
+              >
+                Log Out
+              </button>
+            </div>
+          )}
+        </div>
+      </nav>
+
+      <style jsx>{`
+        nav {
+          /* Removed border */
+          will-change: transform, box-shadow;
+          backdrop-filter: saturate(180%) blur(15px);
+        }
+        nav:hover {
+          box-shadow:
+            0 10px 20px rgba(0, 0, 0, 0.25),
+            0 20px 40px rgba(29, 54, 94, 0.55);
+          transform: translateY(-4px);
+          transition: box-shadow 0.3s ease, transform 0.3s ease;
+        }
+        div[aria-hidden] {
+          will-change: max-height;
+        }
+      `}</style>
+    </>
   );
 };
 

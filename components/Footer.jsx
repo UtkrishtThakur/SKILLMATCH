@@ -3,12 +3,12 @@ import React from "react";
 
 const Footer = () => {
   return (
-    <footer className="bg-blue-950 text-white py-8 px-6 md:px-20 ">
+    <footer className="bg-[#1d365e] text-white py-8 px-6 md:px-20 ">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
         {/* Brand Name / Logo */}
         <div className="text-2xl font-extrabold select-none">
-          <span className="bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
-            SkillMatch
+          <span className="bg-gradient-to-r from-white to-[#53ade0] bg-clip-text text-transparent">
+            Skillmatch
           </span>
         </div>
 
@@ -51,7 +51,7 @@ const Footer = () => {
       </div>
 
       {/* Copyright */}
-      <div className=" text-center text-slate-400 select-none text-sm align-text-top">
+      <div className="text-center text-slate-400 select-none text-sm mt-4">
         &copy; {new Date().getFullYear()} SkillMatch. All rights reserved.
       </div>
     </footer>
