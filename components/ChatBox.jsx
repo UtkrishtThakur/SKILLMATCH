@@ -4,12 +4,20 @@ import React, { useState, useEffect, useRef } from "react";
 import { toast } from "react-hot-toast";
 import Pusher from "pusher-js";
 
-export default function ChatBox({ conversationId, senderId, token, onMessageSent }) {
+export default function ChatBox({ conversationId, senderId, token: propToken, onMessageSent }) {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
-
-  // Keep track of optimistic message IDs
+  const [token, setToken] = useState(propToken || null);
   const optimisticIds = useRef(new Set());
+
+  // ✅ Restore token & user if missing (so chat works even on direct /chat load)
+  useEffect(() => {
+    if (token) return;
+    if (typeof window === "undefined") return;
+
+    const storedToken = localStorage.getItem("token");
+    if (storedToken) setToken(storedToken);
+  }, [token]);
 
   // ---------------- Real-time Pusher listener ----------------
   useEffect(() => {
@@ -24,11 +32,8 @@ export default function ChatBox({ conversationId, senderId, token, onMessageSent
 
     const handleIncoming = (msg) => {
       if (!msg) return;
-
-      // Ignore messages sent by self (by tempId)
       if (msg.tempId && optimisticIds.current.has(msg.tempId)) return;
-
-      if (onMessageSent) onMessageSent(msg);
+      onMessageSent?.(msg);
     };
 
     channel.bind("new-message", handleIncoming);
@@ -42,14 +47,28 @@ export default function ChatBox({ conversationId, senderId, token, onMessageSent
   // ---------------- Sending message ----------------
   const handleSend = async () => {
     if (!message.trim()) return;
-    if (!conversationId || !token) return toast.error("Cannot send message");
+
+    // ✅ Auto-restore token if somehow still missing
+    let activeToken = token;
+    if (!activeToken && typeof window !== "undefined") {
+      const storedToken = localStorage.getItem("token");
+      if (storedToken) {
+        setToken(storedToken);
+        activeToken = storedToken;
+      }
+    }
+
+    if (!conversationId || !activeToken) {
+      return toast.error("Cannot send message — missing session.");
+    }
 
     setSending(true);
     const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
-    const storedUser = typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("user") || "null")
-      : null;
+    const storedUser =
+      typeof window !== "undefined"
+        ? JSON.parse(localStorage.getItem("user") || "null")
+        : null;
 
     const optimistic = {
       _id: tempId,
@@ -65,18 +84,15 @@ export default function ChatBox({ conversationId, senderId, token, onMessageSent
       tempId,
     };
 
-    // Add to tempId set
     optimisticIds.current.add(tempId);
-
-    // Show optimistic message
-    if (onMessageSent) onMessageSent(optimistic);
+    onMessageSent?.(optimistic);
 
     try {
       const res = await fetch(`/api/chat/${conversationId}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${activeToken}`,
         },
         body: JSON.stringify({ content: message, tempId }),
       });
@@ -85,22 +101,18 @@ export default function ChatBox({ conversationId, senderId, token, onMessageSent
 
       if (!res.ok) {
         toast.error(data.error || data.message || "Failed to send message");
-        if (onMessageSent) onMessageSent({ _id: tempId, failed: true });
+        onMessageSent?.({ _id: tempId, failed: true });
       } else {
         setMessage("");
-
-        // Remove tempId after successful send
         optimisticIds.current.delete(tempId);
 
-        // Reconcile optimistic message with canonical one
         const canonical = data.data || data.message || null;
-        if (canonical && onMessageSent)
-          onMessageSent({ ...canonical, tempId });
+        if (canonical) onMessageSent?.({ ...canonical, tempId });
       }
     } catch (err) {
       console.error(err);
       toast.error("Network error");
-      if (onMessageSent) onMessageSent({ _id: tempId, failed: true });
+      onMessageSent?.({ _id: tempId, failed: true });
     } finally {
       setSending(false);
     }

@@ -9,10 +9,17 @@ import Pusher from "pusher-js";
 export default function ChatList({ currentUserId, onSelectConversation }) {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const [token, setToken] = useState(null);
   const router = useRouter();
+
+  // ---------------- Load token safely ----------------
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("token");
+      if (stored) setToken(stored);
+      else toast.error("Missing token — please log in again");
+    }
+  }, []);
 
   // ---------------- Fetch initial conversations ----------------
   useEffect(() => {
@@ -25,13 +32,14 @@ export default function ChatList({ currentUserId, onSelectConversation }) {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
+
         if (res.ok) {
           setConversations(data.conversations || []);
         } else {
-          toast.error(data.error || "Failed to fetch chats");
+          toast.error(data.error || data.message || "Failed to fetch chats");
         }
       } catch (err) {
-        console.error(err);
+        console.error("ChatList fetch error:", err);
         toast.error("Network error fetching chats");
       } finally {
         setLoading(false);
@@ -56,19 +64,26 @@ export default function ChatList({ currentUserId, onSelectConversation }) {
       if (!payload?.conversationId || !payload?.message) return;
 
       setConversations((prev) => {
-        const exists = prev.find(
+        const existing = prev.find(
           (c) => String(c._id) === String(payload.conversationId)
         );
-        if (exists) {
-          // Update last message
+        if (existing) {
+          // Update the last message preview
           return prev.map((c) =>
             String(c._id) === String(payload.conversationId)
               ? { ...c, lastMessage: payload.message }
               : c
           );
         } else {
-          // Optionally fetch new conversation details if needed
-          return prev;
+          // If it's a new chat (user started talking recently)
+          return [
+            {
+              _id: payload.conversationId,
+              members: [payload.sender, payload.receiver].filter(Boolean),
+              lastMessage: payload.message,
+            },
+            ...prev,
+          ];
         }
       });
     };
@@ -83,27 +98,20 @@ export default function ChatList({ currentUserId, onSelectConversation }) {
 
   // ---------------- Loading & Empty states ----------------
   if (loading)
-    return (
-      <div className="p-4 text-gray-400 text-center">Loading chats...</div>
-    );
+    return <div className="p-4 text-gray-400 text-center">Loading chats...</div>;
 
   if (conversations.length === 0)
-    return (
-      <div className="p-4 text-gray-400 text-center">No conversations yet</div>
-    );
+    return <div className="p-4 text-gray-400 text-center">No conversations yet</div>;
 
   // ---------------- Render Conversations ----------------
   return (
     <div className="flex flex-col gap-2 overflow-y-auto max-h-[80vh]">
       {conversations.map((conv) => {
         const members = conv.members ?? conv.participants ?? [];
-
-        // Find the other participant (not the current user)
         const otherUser =
           members.find((m) => m?._id && m._id !== currentUserId) ||
           members.find((id) => id !== currentUserId);
 
-        // Handle both object and ID-only forms
         const otherUserName =
           typeof otherUser === "object"
             ? otherUser.name || otherUser.username || "Unknown User"

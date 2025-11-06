@@ -12,28 +12,28 @@ export default function ChatPage() {
   const params = useParams();
   const conversationId = params.id;
   const [messages, setMessages] = useState([]);
-  const messagesEndRef = useRef(null);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const messagesEndRef = useRef(null);
 
-  // Scroll to bottom whenever messages update
+  // Auto-scroll to bottom when messages change
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
   useEffect(scrollToBottom, [messages]);
 
-  // ---------------- Current user ID ----------------
+  // Load user info from localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
-        const u = JSON.parse(localStorage.getItem("user") || "null");
-        setCurrentUserId(u?._id || u?.id || null);
-      } catch (e) {
+        const storedUser = JSON.parse(localStorage.getItem("user") || "null");
+        setCurrentUserId(storedUser?._id || storedUser?.id || null);
+      } catch {
         setCurrentUserId(null);
       }
     }
   }, []);
 
-  // ---------------- Real-time Pusher subscription ----------------
+  // ---------------- Real-time listener ----------------
   useEffect(() => {
     if (!conversationId) return;
 
@@ -46,9 +46,7 @@ export default function ChatPage() {
 
     const handleNewMessage = (msg) => {
       if (!msg) return;
-
       setMessages((prev) => {
-        // Avoid duplicates
         if (prev.some((x) => String(x._id) === String(msg._id))) return prev;
         return [...prev, msg];
       });
@@ -73,19 +71,51 @@ export default function ChatPage() {
   useEffect(() => {
     const fetchMessages = async () => {
       try {
-        const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const res = await fetch(`/api/chat/${conversationId}`, { headers });
+        const token = localStorage.getItem("token");
+        if (!token) {
+          toast.error("Please log in again — missing token");
+          return;
+        }
+
+        const res = await fetch(`/api/chat/${conversationId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const data = await res.json();
+
         if (res.ok) setMessages(data.messages || []);
         else toast.error(data.error || data.message || "Failed to load messages");
       } catch (err) {
-        console.error(err);
+        console.error("Fetch messages error:", err);
         toast.error("Network error while fetching messages");
       }
     };
+
     if (conversationId) fetchMessages();
   }, [conversationId]);
+
+  // ---------------- Message sending handler ----------------
+  const handleMessageSent = (m) => {
+    if (!m) return;
+
+    if (m.failed) {
+      setMessages((prev) => prev.filter((x) => x._id !== m._id));
+      return;
+    }
+
+    // Reconcile optimistic message with final
+    if (m.tempId) {
+      setMessages((prev) =>
+        prev.map((x) => (x._id === m.tempId ? { ...x, ...m, _id: m._id } : x))
+      );
+      return;
+    }
+
+    // Add new message if not duplicate
+    setMessages((prev) => {
+      if (m._id && prev.some((x) => String(x._id) === String(m._id))) return prev;
+      return [...prev, m];
+    });
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-950 via-blue-900 to-indigo-900 text-white p-4">
@@ -107,15 +137,19 @@ export default function ChatPage() {
                   ...msg,
                   onDelete: async (id) => {
                     try {
-                      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+                      const token = localStorage.getItem("token");
+                      if (!token) return toast.error("Missing token");
                       const res = await fetch(`/api/chat/${conversationId}/${id}`, {
                         method: "DELETE",
-                        headers: token ? { Authorization: `Bearer ${token}` } : {},
+                        headers: { Authorization: `Bearer ${token}` },
                       });
                       const data = await res.json();
+
                       if (!res.ok) toast.error(data.message || "Delete failed");
                       else if (data.deletedId) {
-                        setMessages((prev) => prev.filter((m) => String(m._id) !== String(data.deletedId)));
+                        setMessages((prev) =>
+                          prev.filter((m) => String(m._id) !== String(data.deletedId))
+                        );
                       }
                     } catch (e) {
                       console.error("Delete error", e);
@@ -131,31 +165,9 @@ export default function ChatPage() {
 
           <ChatBox
             conversationId={conversationId}
-            token={typeof window !== "undefined" ? localStorage.getItem("token") : null}
+            token={localStorage.getItem("token")}
             senderId={currentUserId}
-            onMessageSent={(m) => {
-              if (!m) return;
-
-              // Remove failed optimistic messages
-              if (m.failed) {
-                setMessages((prev) => prev.filter((x) => x._id !== m._id));
-                return;
-              }
-
-              // Canonical message with tempId
-              if (m.tempId) {
-                setMessages((prev) =>
-                  prev.map((x) => (x._id === m.tempId ? { ...m, _id: m._id } : x))
-                );
-                return;
-              }
-
-              // Add new message if not duplicate
-              setMessages((prev) => {
-                if (m._id && prev.some((x) => String(x._id) === String(m._id))) return prev;
-                return [...prev, m];
-              });
-            }}
+            onMessageSent={handleMessageSent}
           />
         </div>
       </div>

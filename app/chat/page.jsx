@@ -1,23 +1,41 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import ChatList from "@/components/ChatList";
 import Pusher from "pusher-js";
 
 export default function ChatIndexPage() {
   const [currentUserId, setCurrentUserId] = useState(null);
+  const router = useRouter();
 
+  // ✅ Independent user load
   useEffect(() => {
     if (typeof window === "undefined") return;
-    try {
-      const u = JSON.parse(localStorage.getItem("user") || "null");
-      setCurrentUserId(u?._id || u?.id || null);
-    } catch (e) {
-      setCurrentUserId(null);
-    }
-  }, []);
 
-  // ---------------- Real-time updates for ChatList ----------------
+    try {
+      // Check multiple keys since user can be stored differently
+      const storedUser =
+        JSON.parse(localStorage.getItem("skillmatch_user") || "null") ||
+        JSON.parse(localStorage.getItem("user") || "null");
+
+      const userId = storedUser?._id || storedUser?.id || null;
+      const token = localStorage.getItem("token");
+
+      if (!userId || !token) {
+        console.warn("No user found — redirecting to login");
+        router.push("/auth/login");
+        return;
+      }
+
+      setCurrentUserId(userId);
+    } catch (err) {
+      console.error("Failed to parse local user:", err);
+      router.push("/auth/login");
+    }
+  }, [router]);
+
+  // ✅ Real-time Pusher setup
   useEffect(() => {
     if (!currentUserId) return;
 
@@ -26,11 +44,8 @@ export default function ChatIndexPage() {
       encrypted: true,
     });
 
-    // Subscribe to user-specific channel for new conversations/messages
     const channel = pusher.subscribe(`user-${currentUserId}`);
-
     const handleNewConversation = (conv) => {
-      // If ChatList supports a method to refresh or add conversation, call it
       const event = new CustomEvent("refreshChatList", { detail: conv });
       window.dispatchEvent(event);
     };
@@ -42,6 +57,17 @@ export default function ChatIndexPage() {
       pusher.unsubscribe(`user-${currentUserId}`);
     };
   }, [currentUserId]);
+
+  // ✅ Optional: loading fallback
+  if (!currentUserId) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-950 via-blue-900 to-indigo-900 text-white">
+        <p className="animate-pulse text-lg font-medium">
+          Initializing chat...
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-6 bg-gradient-to-br from-blue-950 via-blue-900 to-indigo-900 text-white">
