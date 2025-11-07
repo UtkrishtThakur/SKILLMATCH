@@ -29,6 +29,9 @@ export default function ProfilePage({ params }) {
   const [showPasswordSuccess, setShowPasswordSuccess] = useState(false);
   const [showErrorMessage, setShowErrorMessage] = useState("");
   const [showPasswordError, setShowPasswordError] = useState("");
+  const [animate, setAnimate] = useState(false);
+
+  useEffect(() => setAnimate(true), []);
 
   // Fetch profile on mount
   useEffect(() => {
@@ -81,7 +84,6 @@ export default function ProfilePage({ params }) {
 
     const updateData = {
       name: form.name || userData.name,
-      // email is locked and not editable, so no need to update it
       skills: skills.split(/[,\n]+/).map((s) => s.trim()).filter(Boolean),
       projects: projects.split(/\n/).map((p) => p.trim()).filter(Boolean),
       description,
@@ -185,8 +187,8 @@ export default function ProfilePage({ params }) {
       ? skillList.map((skill, i) => (
           <span
             key={i}
-            className="px-3 py-1 rounded-full bg-cyan-500/40 text-white text-sm shadow-md select-text"
-            style={{ animation: `popIn 0.3s ease forwards`, animationDelay: `${i * 75}ms` }}
+            className="px-3 py-1 rounded-full bg-white text-[#1d365e] text-sm font-medium shadow-sm select-text transform transition-all duration-200 hover:scale-105"
+            style={{ marginRight: 6, marginBottom: 6 }}
           >
             {skill}
           </span>
@@ -203,8 +205,8 @@ export default function ProfilePage({ params }) {
             href={proj}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-white underline hover:text-pink-400 select-text break-all"
-            style={{ animation: `fadeInUp 0.4s ease forwards`, animationDelay: `${i * 100}ms` }}
+            className="text-white underline hover:text-white/80 select-text break-all"
+            style={{ display: "block", marginBottom: 6 }}
           >
             {proj}
           </a>
@@ -212,74 +214,106 @@ export default function ProfilePage({ params }) {
       : <i className="text-white/60 select-text">No projects added yet.</i>;
   };
 
+  // UI-only parsing of description into From / About (no storage changes)
+  const parseDescription = (desc) => {
+    if (!desc || !desc.trim()) return { from: "", about: "" };
+    if (desc.includes("\n\n")) {
+      const [first, ...rest] = desc.split("\n\n");
+      return { from: first.trim(), about: rest.join("\n\n").trim() };
+    }
+    if (desc.includes("---")) {
+      const [first, ...rest] = desc.split("---");
+      return { from: first.trim(), about: rest.join("---").trim() };
+    }
+    const lines = desc.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (lines.length === 1) {
+      const single = lines[0];
+      if (single.length < 40 && (/[,]/.test(single) || /\bfrom\b/i.test(single) || /^[A-Za-z\s]+$/.test(single))) {
+        return { from: single, about: "" };
+      }
+      return { from: "", about: single };
+    }
+    return { from: lines[0], about: lines.slice(1).join(" ") };
+  };
+
   if (!userData)
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 text-white">
-        <p className="animate-pulse text-xl select-none">Loading profile...</p>
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <p className="animate-pulse text-[#1d365e] text-lg select-none">Loading profile...</p>
       </div>
     );
 
+  const { from: locationPart, about: aboutPart } = parseDescription(description);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 text-white flex justify-center p-6">
-      <div
-        className="w-full max-w-4xl bg-gray-900/90 p-8 rounded-3xl shadow-2xl backdrop-blur-md"
-        aria-live="polite"
+    <div className="min-h-screen bg-white flex items-start justify-center px-4 sm:px-6 lg:px-8 py-50 select-none relative overflow-hidden">
+      {/* Decorative subtle blobs like login page (hidden on very small screens) */}
+      <svg
+        aria-hidden="true"
+        className="hidden sm:block absolute -top-36 -left-36 w-[420px] h-[420px] opacity-8 blur-3xl"
+        viewBox="0 0 600 600"
       >
-        {/* Top area: photo, name, email, edit button */}
-        <div className="flex flex-col sm:flex-row items-center gap-8 mb-10">
-          {/* Profile photo */}
-          <div
-            className="relative w-36 h-36 rounded-full overflow-hidden border-4 border-gradient-to-tr from-cyan-400 via-purple-500 to-pink-500 shadow-lg cursor-pointer hover:scale-105 transition-transform duration-300 ease-in-out"
-            onClick={triggerFileInput}
-            title="Click to change profile photo"
-            aria-label="Change profile photo"
-          >
-            <img
-              src={profilePhoto || "/default-avatar.png"}
-              alt={`${userData.name} profile photo`}
-              className={`w-full h-full object-cover rounded-full select-none
-                ${photoUploading ? "opacity-50 scale-110 blur-sm" : "opacity-100 scale-100 blur-0"}
-                transition-all duration-500 ease-in-out`}
-              draggable={false}
-            />
-            {photoUploading && (
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-full">
-                <svg
-                  className="animate-spin h-10 w-10 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8v8H4z"
-                  />
-                </svg>
-              </div>
-            )}
-            <input
-              type="file"
-              accept="image/*"
-              ref={fileInputRef}
-              onChange={handleProfilePhotoChange}
-              className="hidden"
-            />
+        <defs>
+          <radialGradient id="pBlob1" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <circle cx="300" cy="300" r="300" fill="url(#pBlob1)" />
+      </svg>
+
+      <svg
+        aria-hidden="true"
+        className="hidden sm:block absolute -bottom-36 -right-36 w-[420px] h-[420px] opacity-6 blur-3xl"
+        viewBox="0 0 600 600"
+      >
+        <defs>
+          <radialGradient id="pBlob2" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <circle cx="300" cy="300" r="300" fill="url(#pBlob2)" />
+      </svg>
+
+      {/* Centered card matching Login UI style: dark card on white page, spaced from navbar */}
+      <div
+        className={`relative z-20 w-full max-w-4xl bg-[#1d365e] text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-2xl border border-white/20 transition-all duration-700 ease-out ${animate ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
+        style={{ marginTop: "3.5rem" }}
+      >
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-4 mb-6">
+          <div className="flex items-center gap-4">
+            <div
+              className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-4 border-white object-cover shadow-md cursor-pointer transform transition-transform duration-200 hover:scale-105"
+              onClick={triggerFileInput}
+              title="Change profile photo"
+            >
+              <img
+                src={profilePhoto || "/default-avatar.png"}
+                alt={`${userData.name} profile photo`}
+                className={`w-full h-full object-cover rounded-full select-none transition-all duration-300 ${photoUploading ? "opacity-60 scale-105" : "opacity-100 scale-100"}`}
+                draggable={false}
+              />
+              {photoUploading && (
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-full">
+                  <svg className="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                  </svg>
+                </div>
+              )}
+              <input type="file" accept="image/*" ref={fileInputRef} onChange={handleProfilePhotoChange} className="hidden" />
+            </div>
+
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold truncate">{userData.name}</h1>
+              <p className="text-white/75 text-sm sm:text-base mt-1 truncate">{userData.email}</p>
+              <p className="text-white/60 text-sm mt-2">{userData.role || "Learner"} • {userData.location || "Location not set"}</p>
+            </div>
           </div>
 
-          {/* Name, email and edit button */}
-          <div className="flex-1 flex flex-col justify-center gap-4 select-text">
-            <h1 className="text-4xl font-extrabold truncate">{userData.name}</h1>
-            <p className="text-gray-300 text-lg truncate">{userData.email}</p>
+          <div className="flex-shrink-0 flex items-center gap-3">
             <button
               onClick={() => {
                 setEditing(true);
@@ -290,201 +324,112 @@ export default function ProfilePage({ params }) {
                 setShowErrorMessage("");
                 setShowSuccessMessage(false);
               }}
-              className="self-start mt-4 bg-gradient-to-r from-purple-500 to-pink-500 px-6 py-2 rounded-full text-white font-semibold shadow-lg hover:brightness-110 focus:outline-none focus:ring-4 focus:ring-pink-400 transition transform hover:scale-105 active:scale-95"
-              type="button"
-              aria-label="Edit Profile"
+              className="px-4 py-2 rounded-full bg-white text-[#1d365e] font-semibold shadow hover:scale-105 transition-transform"
             >
               Edit Profile
+            </button>
+            <button
+              onClick={() => {
+                setChangingPassword(!changingPassword);
+                setShowPasswordError("");
+                setShowPasswordSuccess(false);
+                setPasswordForm({ oldPassword: "", newPassword: "", confirmPassword: "" });
+              }}
+              className="px-3 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white font-medium transition"
+            >
+              {changingPassword ? "Cancel" : "Change Password"}
             </button>
           </div>
         </div>
 
-        {/* Main content shelf */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Description shelf */}
-          <section
-            className="bg-white/10 rounded-2xl p-6 border border-white/20 shadow-lg backdrop-blur-md transition-shadow hover:shadow-2xl"
-            aria-labelledby="desc-title"
-          >
-            <h2
-              id="desc-title"
-              className="text-cyan-400 font-semibold text-xl mb-4 select-none"
-            >
-              Description
-            </h2>
-            {!editing ? (
-              <p className="whitespace-pre-wrap text-white text-sm min-h-[120px] break-words">
-                {description || <i className="text-white/60">No description added.</i>}
-              </p>
-            ) : (
+        {/* Grid like login-style stacked sections for smaller devices */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Description block */}
+          <div className="md:col-span-1 bg-white/6 rounded-xl p-4">
+            <h2 className="text-white/90 font-semibold mb-2">Description</h2>
+            <div className="text-sm text-white/70 mb-3">
+              <div className="mb-2">
+                <div className="text-white/80 text-xs">Where I'm from</div>
+                {locationPart ? <div>{locationPart}</div> : <div className="text-white/40 italic">Not specified</div>}
+              </div>
+              <div>
+                <div className="text-white/80 text-xs">Who I am</div>
+                {aboutPart ? <div className="whitespace-pre-wrap">{aboutPart}</div> : (description ? <div className="whitespace-pre-wrap">{description}</div> : <div className="text-white/40 italic">No bio yet</div>)}
+              </div>
+            </div>
+
+            {editing && (
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full h-32 p-3 rounded-xl bg-white/20 border border-transparent focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400 text-white placeholder-white/70 resize-none transition"
-                spellCheck={false}
-                placeholder="Add your description here..."
+                className="w-full mt-2 p-3 rounded-lg bg-white/6 border border-transparent focus:border-white/20 focus:ring-2 focus:ring-white/10 text-white placeholder-white/60 resize-none"
+                rows={4}
+                placeholder="City, Country (blank line) Short bio..."
               />
             )}
-          </section>
+          </div>
 
-     {/* Skills shelf */}
-<section
-  className="bg-white/10 rounded-2xl p-6 border border-white/20 shadow-lg backdrop-blur-md transition-shadow hover:shadow-2xl"
-  aria-labelledby="skills-title"
->
-  <h2
-    id="skills-title"
-    className="text-cyan-400 font-semibold text-xl mb-4 select-none"
-  >
-    Skills
-  </h2>
-  {!editing ? (
-    <div className="flex flex-wrap gap-3 min-h-[40px] max-h-[120px]">
-      {skills.trim() ? (
-        skills
-          .split(/[,\n]+/)
-          .map((skill) => skill.trim())
-          .filter(Boolean)
-          .map((skill, i) => (
-            <span
-              key={i}
-              className="inline-block px-4 py-1 rounded-full bg-cyan-500 text-white text-sm font-medium shadow-sm select-text whitespace-nowrap"
-              style={{ animation: `popIn 0.3s ease forwards`, animationDelay: `${i * 75}ms` }}
-            >
-              {skill}
-            </span>
-          ))
-      ) : (
-        <i className="text-white/60 select-text">No skills added yet.</i>
-      )}
-    </div>
-  ) : (
-    <textarea
-      value={skills}
-      onChange={(e) => setSkills(e.target.value)}
-      placeholder="Enter skills separated by commas or new lines"
-      className="w-full h-28 p-3 rounded-xl bg-white/20 border border-transparent focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400 text-white placeholder-white/70 resize-y transition shadow-inner"
-      spellCheck={false}
-      rows={4}
-    />
-  )}
-</section>
-          {/* Projects shelf */}
-          <section
-            className="bg-white/10 rounded-2xl p-6 border border-white/20 shadow-lg backdrop-blur-md transition-shadow hover:shadow-2xl"
-            aria-labelledby="projects-title"
-          >
-            <h2
-              id="projects-title"
-              className="text-pink-400 font-semibold text-xl mb-4 select-none"
-            >
-              Projects
-            </h2>
-            {!editing ? (
-              <div className="flex flex-col gap-2 min-h-[120px] break-words">
-                {renderProjects()}
-              </div>
-            ) : (
-              <textarea
-                value={projects}
-                onChange={(e) => setProjects(e.target.value)}
-                placeholder="One project link per line"
-                className="w-full h-32 p-3 rounded-xl bg-white/20 border border-transparent focus:border-pink-400 focus:ring-2 focus:ring-pink-400 text-white placeholder-white/70 resize-none transition"
-                spellCheck={false}
-              />
-            )}
-          </section>
+          {/* Skills block */}
+          <div className="md:col-span-1 bg-white/6 rounded-xl p-4">
+            <h2 className="text-white/90 font-semibold mb-2">Major Skills</h2>
+            <div className="mb-2">
+              {!editing ? <div className="flex flex-wrap">{renderSkills()}</div> : (
+                <textarea
+                  value={skills}
+                  onChange={(e) => setSkills(e.target.value)}
+                  placeholder="comma separated or new lines"
+                  className="w-full p-3 rounded-lg bg-white/6 border border-transparent focus:border-white/20 focus:ring-2 focus:ring-white/10 text-white placeholder-white/60 resize-y"
+                  rows={5}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Projects block */}
+          <div className="md:col-span-1 bg-white/6 rounded-xl p-4">
+            <h2 className="text-white/90 font-semibold mb-2">Projects</h2>
+            <div className="mb-2">
+              {!editing ? <div className="flex flex-col">{renderProjects()}</div> : (
+                <textarea
+                  value={projects}
+                  onChange={(e) => setProjects(e.target.value)}
+                  placeholder="One link per line"
+                  className="w-full p-3 rounded-lg bg-white/6 border border-transparent focus:border-white/20 focus:ring-2 focus:ring-white/10 text-white placeholder-white/60 resize-none"
+                  rows={5}
+                />
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Edit controls shelf */}
+        {/* Edit form area (shown when editing) */}
         {editing && (
-          <form
-            onSubmit={handleUpdate}
-            className="mt-8 flex flex-col md:flex-row items-center justify-between gap-4"
-          >
-            <div className="flex flex-col w-full md:w-auto gap-4 md:flex-row md:items-center md:gap-6">
-              {/* Name input */}
-              <div className="flex flex-col">
-                <label
-                  htmlFor="name"
-                  className="text-cyan-400 font-semibold mb-1 select-none"
-                >
-                  Name
-                </label>
+          <form onSubmit={handleUpdate} className="mt-6 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-white/80 text-sm">Name</label>
                 <input
-                  id="name"
                   type="text"
-                  placeholder="Name"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full md:w-64 p-3 rounded-xl bg-white/20 border border-transparent focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400 text-white placeholder-white/70 transition"
+                  className="w-full mt-2 p-3 rounded-lg bg-white/6 border border-transparent focus:border-white/20 focus:ring-2 focus:ring-white/10 text-white placeholder-white/60"
                   required
-                  spellCheck={false}
-                  autoComplete="name"
                 />
               </div>
-
-              {/* Email input (locked) */}
-              <div className="flex flex-col w-full md:w-72">
-                <label
-                  htmlFor="email"
-                  className="text-cyan-400 font-semibold mb-1 select-none"
-                >
-                  Email (Locked)
-                </label>
+              <div>
+                <label className="text-white/80 text-sm">Email (Locked)</label>
                 <input
-                  id="email"
                   type="email"
                   value={form.email}
-                  className="w-full p-3 rounded-xl bg-gray-700 border border-gray-600 cursor-not-allowed select-text"
                   disabled
-                  spellCheck={false}
-                  autoComplete="email"
+                  className="w-full mt-2 p-3 rounded-lg bg-gray-800 border border-gray-700 cursor-not-allowed text-white"
                 />
               </div>
             </div>
 
-            {/* Buttons */}
-            <div className="flex gap-4 w-full md:w-auto">
-              <button
-                type="submit"
-                disabled={loadingUpdate}
-                className={`flex-grow md:flex-grow-0 bg-indigo-600 p-3 rounded-xl font-semibold shadow-lg focus:outline-none focus:ring-4 focus:ring-indigo-400 transition transform
-                  ${loadingUpdate ? "cursor-wait opacity-70" : "hover:bg-indigo-700 hover:scale-105 active:scale-95"}`}
-                aria-busy={loadingUpdate}
-              >
-                {loadingUpdate ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg
-                      className="animate-spin h-5 w-5 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8v8H4z"
-                      />
-                    </svg>
-                    Saving...
-                  </span>
-                ) : (
-                  "Save"
-                )}
-              </button>
+            <div className="flex gap-3 justify-end">
               <button
                 type="button"
-                disabled={loadingUpdate}
                 onClick={() => {
                   setEditing(false);
                   setForm({ name: userData.name, email: userData.email });
@@ -493,195 +438,78 @@ export default function ProfilePage({ params }) {
                   setDescription(userData.description || "");
                   setShowErrorMessage("");
                 }}
-                className={`flex-grow md:flex-grow-0 bg-gray-700 p-3 rounded-xl font-semibold shadow-lg focus:outline-none focus:ring-4 focus:ring-gray-600 transition transform
-                  ${loadingUpdate ? "cursor-not-allowed opacity-50" : "hover:bg-gray-600 hover:scale-105 active:scale-95"}`}
+                className="px-4 py-2 rounded-lg bg-gray-800 text-white"
               >
                 Cancel
+              </button>
+
+              <button
+                type="submit"
+                disabled={loadingUpdate}
+                className="px-4 py-2 rounded-lg bg-white text-[#1d365e] font-semibold"
+              >
+                {loadingUpdate ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Password change area */}
+        {changingPassword && (
+          <form onSubmit={handlePasswordChange} className="mt-6 space-y-3 max-w-md">
+            <input
+              type="password"
+              placeholder="Old password"
+              value={passwordForm.oldPassword}
+              onChange={(e) => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })}
+              className="w-full p-3 rounded-lg bg-white/6 border border-transparent focus:border-white/20 focus:ring-2 focus:ring-white/10 text-white"
+              required
+              disabled={loadingPassword}
+            />
+            <input
+              type="password"
+              placeholder="New password"
+              value={passwordForm.newPassword}
+              onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+              className="w-full p-3 rounded-lg bg-white/6 border border-transparent focus:border-white/20 focus:ring-2 focus:ring-white/10 text-white"
+              required
+              minLength={6}
+              disabled={loadingPassword}
+            />
+            <input
+              type="password"
+              placeholder="Confirm password"
+              value={passwordForm.confirmPassword}
+              onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+              className="w-full p-3 rounded-lg bg-white/6 border border-transparent focus:border-white/20 focus:ring-2 focus:ring-white/10 text-white"
+              required
+              minLength={6}
+              disabled={loadingPassword}
+            />
+            <div className="flex gap-3 justify-end">
+              <button type="button" onClick={() => setChangingPassword(false)} className="px-4 py-2 rounded-lg bg-gray-800 text-white">
+                Cancel
+              </button>
+              <button type="submit" disabled={loadingPassword} className="px-4 py-2 rounded-lg bg-white text-[#1d365e] font-semibold">
+                {loadingPassword ? "Updating..." : "Update Password"}
               </button>
             </div>
           </form>
         )}
 
         {/* Messages */}
-        {showErrorMessage && (
-          <p
-            className="mt-4 text-red-400 font-semibold select-text animate-fadeIn"
-            role="alert"
-          >
-            {showErrorMessage}
-          </p>
-        )}
-        {showSuccessMessage && (
-          <p
-            className="mt-4 text-green-400 font-semibold select-text animate-fadeIn"
-            role="alert"
-          >
-            Profile updated successfully!
-          </p>
-        )}
-
-        {/* Password Section */}
-        <div className="mt-12 select-text">
-          <button
-            onClick={() => {
-              setChangingPassword(!changingPassword);
-              setShowPasswordError("");
-              setShowPasswordSuccess(false);
-              setPasswordForm({ oldPassword: "", newPassword: "", confirmPassword: "" });
-            }}
-            className="w-full md:w-48 bg-purple-600 hover:bg-purple-700 p-3 rounded-full font-semibold shadow-lg focus:outline-none focus:ring-4 focus:ring-purple-400 transition transform hover:scale-105 active:scale-95"
-            type="button"
-            aria-expanded={changingPassword}
-            aria-controls="password-change-form"
-          >
-            {changingPassword ? "Cancel Password Change" : "Change Password"}
-          </button>
-
-          {changingPassword && (
-            <form
-              id="password-change-form"
-              onSubmit={handlePasswordChange}
-              className="space-y-3 mt-6 max-w-md"
-              aria-live="polite"
-            >
-              <input
-                type="password"
-                placeholder="Old Password"
-                value={passwordForm.oldPassword}
-                onChange={(e) =>
-                  setPasswordForm({ ...passwordForm, oldPassword: e.target.value })
-                }
-                className="w-full bg-gray-800 p-3 rounded-xl border border-transparent focus:border-purple-400 focus:ring-2 focus:ring-purple-400 transition"
-                required
-                autoComplete="current-password"
-                spellCheck={false}
-                disabled={loadingPassword}
-              />
-              <input
-                type="password"
-                placeholder="New Password"
-                value={passwordForm.newPassword}
-                onChange={(e) =>
-                  setPasswordForm({ ...passwordForm, newPassword: e.target.value })
-                }
-                className="w-full bg-gray-800 p-3 rounded-xl border border-transparent focus:border-purple-400 focus:ring-2 focus:ring-purple-400 transition"
-                required
-                minLength={6}
-                autoComplete="new-password"
-                spellCheck={false}
-                disabled={loadingPassword}
-              />
-              <input
-                type="password"
-                placeholder="Confirm Password"
-                value={passwordForm.confirmPassword}
-                onChange={(e) =>
-                  setPasswordForm({
-                    ...passwordForm,
-                    confirmPassword: e.target.value,
-                  })
-                }
-                className="w-full bg-gray-800 p-3 rounded-xl border border-transparent focus:border-purple-400 focus:ring-2 focus:ring-purple-400 transition"
-                required
-                minLength={6}
-                autoComplete="new-password"
-                spellCheck={false}
-                disabled={loadingPassword}
-              />
-              <button
-                type="submit"
-                disabled={loadingPassword}
-                className={`w-full bg-green-600 p-3 rounded-xl font-semibold shadow-lg focus:outline-none focus:ring-4 focus:ring-green-400 transition transform
-                  ${loadingPassword ? "cursor-wait opacity-70" : "hover:bg-green-700 hover:scale-105 active:scale-95"}`}
-                aria-busy={loadingPassword}
-              >
-                {loadingPassword ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg
-                      className="animate-spin h-5 w-5 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8v8H4z"
-                      />
-                    </svg>
-                    Updating...
-                  </span>
-                ) : (
-                  "Update Password"
-                )}
-              </button>
-              {showPasswordError && (
-                <p
-                  className="mt-2 text-red-400 font-semibold select-text animate-fadeIn"
-                  role="alert"
-                >
-                  {showPasswordError}
-                </p>
-              )}
-              {showPasswordSuccess && (
-                <p
-                  className="mt-2 text-green-400 font-semibold select-text animate-fadeIn"
-                  role="alert"
-                >
-                  Password changed successfully!
-                </p>
-              )}
-            </form>
-          )}
-        </div>
+        {showErrorMessage && <p className="mt-4 text-red-400">{showErrorMessage}</p>}
+        {showSuccessMessage && <p className="mt-4 text-green-400">Profile updated successfully!</p>}
+        {showPasswordError && <p className="mt-4 text-red-400">{showPasswordError}</p>}
+        {showPasswordSuccess && <p className="mt-4 text-green-400">Password changed successfully!</p>}
       </div>
 
       <style jsx>{`
-        @keyframes popIn {
-          0% {
-            transform: scale(0.75);
-            opacity: 0;
-          }
-          100% {
-            transform: scale(1);
-            opacity: 1;
-          }
+        .blur-3xl {
+          filter: blur(28px);
         }
-        @keyframes fadeInUp {
-          0% {
-            transform: translateY(10px);
-            opacity: 0;
-          }
-          100% {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
-        @keyframes fadeIn {
-          0% {
-            opacity: 0;
-          }
-          100% {
-            opacity: 1;
-          }
-        }
-        .animate-fadeIn {
-          animation: fadeIn 0.4s ease forwards;
-        }
-        .border-gradient-to-tr {
-          border-image-slice: 1;
-          border-width: 4px;
-          border-style: solid;
-          border-image-source: linear-gradient(to top right, #22d3ee, #a78bfa, #ec4899);
+        @media (max-width: 640px) {
+          .max-w-4xl { padding: 12px; }
         }
       `}</style>
     </div>

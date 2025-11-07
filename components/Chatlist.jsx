@@ -1,7 +1,6 @@
-"use client";
+'use client';
 
-import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import { toast } from "react-hot-toast";
 import Pusher from "pusher-js";
@@ -9,50 +8,60 @@ import Pusher from "pusher-js";
 export default function ChatList({ currentUserId, onSelectConversation }) {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState(null);
-  const router = useRouter();
+  const tokenRef = useRef(null);
 
-  // ---------------- Load token safely ----------------
+  // load token
   useEffect(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("token");
-      if (stored) setToken(stored);
+      if (stored) tokenRef.current = stored;
       else toast.error("Missing token — please log in again");
     }
   }, []);
 
-  // ---------------- Fetch initial conversations ----------------
-  useEffect(() => {
-    if (!token) return;
-
-    const fetchConversations = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch("/api/chat/conversations", {
-          headers: { Authorization: `Bearer ${token}` },
+  // fetch conversations
+  const fetchConversations = async () => {
+    if (!tokenRef.current) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/chat/conversations", {
+        headers: { Authorization: `Bearer ${tokenRef.current}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        // stable ordering, map to consistent shape
+        setConversations((prev) => {
+          const incoming = (data.conversations || []).map((c) => ({ ...c }));
+          // merge prev and incoming to keep any optimistic updates in place but prefer server
+          return incoming;
         });
-        const data = await res.json();
-
-        if (res.ok) {
-          setConversations(data.conversations || []);
-        } else {
-          toast.error(data.error || data.message || "Failed to fetch chats");
-        }
-      } catch (err) {
-        console.error("ChatList fetch error:", err);
-        toast.error("Network error fetching chats");
-      } finally {
-        setLoading(false);
+      } else {
+        toast.error(data.error || data.message || "Failed to fetch chats");
       }
-    };
+    } catch (err) {
+      console.error("ChatList fetch error:", err);
+      toast.error("Network error fetching chats");
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchConversations();
-  }, [token]);
+    // also listen to a custom window event so other parts (index) can trigger refresh
+    const onRefresh = (e) => {
+      // payload may include a conversation — simply refetch for consistency
+      fetchConversations();
+    };
+    window.addEventListener("refreshChatList", onRefresh);
+    return () => window.removeEventListener("refreshChatList", onRefresh);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // ---------------- Real-time Pusher subscription ----------------
+  // pusher listener to update list in-place without reload
   useEffect(() => {
     if (!currentUserId) return;
-
+    if (typeof window === "undefined") return;
     const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY, {
       cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
       encrypted: true,
@@ -62,25 +71,22 @@ export default function ChatList({ currentUserId, onSelectConversation }) {
 
     const handleNewMessage = (payload) => {
       if (!payload?.conversationId || !payload?.message) return;
-
       setConversations((prev) => {
-        const existing = prev.find(
-          (c) => String(c._id) === String(payload.conversationId)
-        );
-        if (existing) {
-          // Update the last message preview
-          return prev.map((c) =>
-            String(c._id) === String(payload.conversationId)
-              ? { ...c, lastMessage: payload.message }
-              : c
-          );
+        const existingIndex = prev.findIndex((c) => String(c._id) === String(payload.conversationId));
+        if (existingIndex >= 0) {
+          const copy = [...prev];
+          copy[existingIndex] = { ...copy[existingIndex], lastMessage: payload.message, updatedAt: new Date().toISOString() };
+          // move updated conversation to top
+          const [updated] = copy.splice(existingIndex, 1);
+          return [updated, ...copy];
         } else {
-          // If it's a new chat (user started talking recently)
+          // new conversation — put on top
           return [
             {
               _id: payload.conversationId,
               members: [payload.sender, payload.receiver].filter(Boolean),
               lastMessage: payload.message,
+              updatedAt: new Date().toISOString(),
             },
             ...prev,
           ];
@@ -96,21 +102,16 @@ export default function ChatList({ currentUserId, onSelectConversation }) {
     };
   }, [currentUserId]);
 
-  // ---------------- Loading & Empty states ----------------
-  if (loading)
-    return <div className="p-4 text-gray-400 text-center">Loading chats...</div>;
+  if (loading) return <div className="p-4 text-white/70 text-center">Loading chats...</div>;
+  if (!conversations.length) return <div className="p-4 text-white/70 text-center">No conversations yet</div>;
 
-  if (conversations.length === 0)
-    return <div className="p-4 text-gray-400 text-center">No conversations yet</div>;
-
-  // ---------------- Render Conversations ----------------
   return (
-    <div className="flex flex-col gap-2 overflow-y-auto max-h-[80vh]">
+    <div className="flex flex-col gap-3 overflow-y-auto max-h-[80vh]">
       {conversations.map((conv) => {
         const members = conv.members ?? conv.participants ?? [];
         const otherUser =
-          members.find((m) => m?._id && m._id !== currentUserId) ||
-          members.find((id) => id !== currentUserId);
+          members.find((m) => m?._id && String(m._id) !== String(currentUserId)) ||
+          members.find((id) => String(id) !== String(currentUserId));
 
         const otherUserName =
           typeof otherUser === "object"
@@ -123,30 +124,30 @@ export default function ChatList({ currentUserId, onSelectConversation }) {
             : "/default-avatar.png";
 
         const lastMsg =
-          conv.lastMessage?.content ??
-          (typeof otherUser === "object"
-            ? (otherUser.skills || []).join(", ")
-            : "");
+          conv.lastMessage?.content ?? conv.lastMessage?.text ?? "";
 
         return (
           <div
             key={conv._id}
-            onClick={() => {
-              if (onSelectConversation) onSelectConversation(conv);
-              else router.push(`/chat/${conv._id}`);
-            }}
-            className="flex items-center gap-3 p-3 rounded-xl hover:bg-blue-700 cursor-pointer transition-all"
+            onClick={() => onSelectConversation ? onSelectConversation(conv) : null}
+            className="flex items-center gap-3 p-3 rounded-xl bg-white/6 border border-white/10 hover:bg-white/8 cursor-pointer transition"
+            role="button"
+            tabIndex={0}
+            aria-label={`Open conversation with ${otherUserName}`}
           >
             <Image
               src={otherUserPhoto}
               alt={otherUserName}
-              width={50}
-              height={50}
-              className="rounded-full border border-blue-500 object-cover"
+              width={56}
+              height={56}
+              className="rounded-full border border-white/8 object-cover"
             />
-            <div className="flex-1">
-              <p className="text-white font-medium">{otherUserName}</p>
-              <p className="text-gray-300 text-sm truncate">{lastMsg}</p>
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between items-center gap-2">
+                <p className="text-white font-semibold truncate">{otherUserName}</p>
+                <p className="text-xs text-white/50">{conv.updatedAt ? new Date(conv.updatedAt).toLocaleTimeString() : ""}</p>
+              </div>
+              <p className="text-white/70 text-sm truncate mt-1">{lastMsg || "No messages yet"}</p>
             </div>
           </div>
         );

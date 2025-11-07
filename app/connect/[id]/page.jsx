@@ -11,9 +11,14 @@ export default function ConnectPage({ params }) {
   const [sentRequests, setSentRequests] = useState([]);
   const [connections, setConnections] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [animate, setAnimate] = useState(false);
 
   const [userId, setUserId] = useState(null);
   const [token, setToken] = useState(null);
+
+  useEffect(() => {
+    setAnimate(true);
+  }, []);
 
   // ✅ Load and persist user/token properly for independent access later
   useEffect(() => {
@@ -29,7 +34,7 @@ export default function ConnectPage({ params }) {
         setUserId(idFromStorage);
         setToken(storedToken || null);
 
-        // 🔹 Ensure SkillMatch uses consistent user key for direct chat load
+        // Keep a compact copy for other flows that might rely on it
         localStorage.setItem(
           "skillmatch_user",
           JSON.stringify({
@@ -166,9 +171,9 @@ export default function ConnectPage({ params }) {
       return (
         <div
           key={req._id || req.connectDocId}
-          className="bg-gray-800 rounded-2xl p-4"
+          className="bg-[#1d365e] rounded-2xl p-4 border border-white/20 shadow-md"
         >
-          <p className="text-sm text-gray-300">
+          <p className="text-sm text-white/70">
             User data missing for this connection.
           </p>
         </div>
@@ -185,33 +190,33 @@ export default function ConnectPage({ params }) {
     return (
       <div
         key={type === "connections" ? req.connectDocId : req._id}
-        className="bg-blue-900/40 border border-blue-700 rounded-2xl p-4 flex items-center gap-4 hover:bg-blue-900/60 transition-all duration-200 shadow-md hover:shadow-xl"
+        className="bg-[#1d365e] border border-white/20 rounded-2xl p-5 flex items-center gap-5 hover:shadow-white/30 transition-shadow duration-200 shadow-md hover:scale-[1.03] transform"
+        tabIndex={0}
+        aria-label={`Profile card for ${user.name}`}
       >
         <Image
           src={user.profilePhoto || "/default-avatar.png"}
           alt={user.name}
-          width={60}
-          height={60}
-          className="rounded-full border border-blue-500"
+          width={64}
+          height={64}
+          className="rounded-full border border-white shadow-sm object-cover"
         />
-        <div className="flex-1">
-          <h2 className="text-lg font-semibold">{title}</h2>
-          <p className="text-sm text-gray-300 truncate">
-            {(user.skills || []).join(", ")}
-          </p>
-          <p className="text-xs text-gray-400 mt-1">{user.email}</p>
+        <div className="flex-1 text-white">
+          <h2 className="text-lg font-semibold truncate">{title}</h2>
+          <p className="text-sm text-white/70 truncate">{(user.skills || []).join(", ")}</p>
+          <p className="text-xs text-white/50 mt-1">{user.email}</p>
 
           {type === "received" && (
-            <div className="flex gap-3 mt-3">
+            <div className="flex gap-4 mt-3">
               <button
                 onClick={() => handleAction("accept", req._id)}
-                className="bg-green-500 px-3 py-1 rounded-md text-sm hover:bg-green-600 transition"
+                className="bg-white text-[#1d365e] px-4 py-1 rounded-md text-sm font-semibold hover:bg-white/90 transition"
               >
                 Accept
               </button>
               <button
                 onClick={() => handleAction("decline", req._id)}
-                className="bg-red-500 px-3 py-1 rounded-md text-sm hover:bg-red-600 transition"
+                className="bg-red-600 px-4 py-1 rounded-md text-sm font-semibold hover:bg-red-700 transition"
               >
                 Decline
               </button>
@@ -219,11 +224,11 @@ export default function ConnectPage({ params }) {
           )}
 
           {type === "sent" && (
-            <div className="flex flex-col mt-2">
-              <p className="text-sm text-yellow-400 font-medium">Pending...</p>
+            <div className="flex flex-col mt-3">
+              <p className="text-yellow-400 font-medium text-sm">Pending...</p>
               <button
                 onClick={() => handleAction("cancel", req._id)}
-                className="bg-red-500 px-3 py-1 rounded-md text-sm hover:bg-red-600 transition mt-1"
+                className="bg-red-600 mt-2 px-4 py-1 rounded-md text-sm font-semibold hover:bg-red-700 transition"
               >
                 Cancel
               </button>
@@ -231,14 +236,14 @@ export default function ConnectPage({ params }) {
           )}
 
           {type === "connection" && (
-            <div className="flex gap-3 mt-3">
+            <div className="flex gap-4 mt-3">
               <button
                 onClick={() => handleAction("remove", req.connectDocId)}
-                className="bg-red-500 px-3 py-1 rounded-md text-sm hover:bg-red-600 transition"
+                className="bg-red-600 px-4 py-1 rounded-md text-sm font-semibold hover:bg-red-700 transition"
               >
                 Remove
               </button>
-              <ChatButton userId={user._id} />
+              <ChatButton userId={user._id} userName={user.name} />
             </div>
           )}
         </div>
@@ -248,30 +253,63 @@ export default function ConnectPage({ params }) {
 
   if (loading)
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-950 via-blue-900 to-indigo-900 text-white">
-        <p className="animate-pulse text-lg font-medium">
-          Loading your connections...
-        </p>
+      <div className="flex items-center justify-center min-h-screen bg-white">
+        <p className="animate-pulse text-[#1d365e] text-lg font-semibold">Loading your connections...</p>
       </div>
     );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-950 via-blue-900 to-indigo-900 text-white p-6">
-      <div className="max-w-4xl mx-auto mt-8">
-        <h1 className="text-3xl font-bold text-center mb-8 tracking-wide">
+    <div className="min-h-screen bg-white pt-[6.5rem] pb-14 px-6 flex justify-center items-start">
+      {/* Decorative blurred blobs (keeps login-style feel) */}
+      <svg
+        aria-hidden="true"
+        className="absolute -z-10 top-6 left-6 w-[360px] h-[360px] opacity-10 blur-3xl"
+        viewBox="0 0 600 600"
+      >
+        <defs>
+          <radialGradient id="g1" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <circle cx="300" cy="300" r="300" fill="url(#g1)" />
+      </svg>
+
+      <svg
+        aria-hidden="true"
+        className="absolute -z-10 bottom-6 right-6 w-[360px] h-[360px] opacity-08 blur-3xl"
+        viewBox="0 0 600 600"
+      >
+        <defs>
+          <radialGradient id="g2" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <circle cx="300" cy="300" r="300" fill="url(#g2)" />
+      </svg>
+
+      {/* Bigger centered card to match other pages */}
+      <div
+        className={`max-w-5xl w-full bg-[#1d365e] rounded-3xl p-10 shadow-2xl border border-white/30 transition-all duration-400 ${animate ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
+        style={{ marginTop: "1.25rem" }}
+      >
+        <h1 className="text-3xl font-bold text-white text-center mb-6 tracking-wide select-text">
           Your Connections
         </h1>
 
-        <div className="flex justify-center gap-4 mb-8">
+        {/* Tabs */}
+        <div className="flex justify-center gap-6 mb-8">
           {["received", "sent", "connections"].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-5 py-2 rounded-xl text-sm font-medium capitalize transition-all duration-200 ${
+              className={`px-6 py-2 rounded-xl text-white text-sm font-semibold uppercase tracking-wide transition-all duration-200 ${
                 activeTab === tab
-                  ? "bg-indigo-500 text-white shadow-lg scale-105"
-                  : "bg-blue-800 text-gray-300 hover:bg-blue-700"
+                  ? "bg-white text-[#1d365e] shadow-lg scale-105"
+                  : "bg-[#17406b] hover:bg-[#162f4f]"
               }`}
+              aria-pressed={activeTab === tab}
             >
               {tab === "received"
                 ? "Received Requests"
@@ -282,43 +320,53 @@ export default function ConnectPage({ params }) {
           ))}
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-6">
+        {/* Requests List */}
+        <div className="grid sm:grid-cols-2 gap-6 overflow-y-auto" style={{ maxHeight: "620px" }}>
           {activeTab === "received" &&
             (receivedRequests.length > 0 ? (
               receivedRequests.map((req) => renderCard(req, "received"))
             ) : (
-              <p className="text-center text-gray-400 col-span-2">
-                No received requests
-              </p>
+              <p className="text-center text-white/70 col-span-2 select-text">No received requests</p>
             ))}
 
           {activeTab === "sent" &&
             (sentRequests.length > 0 ? (
               sentRequests.map((req) => renderCard(req, "sent"))
             ) : (
-              <p className="text-center text-gray-400 col-span-2">
-                No sent requests
-              </p>
+              <p className="text-center text-white/70 col-span-2 select-text">No sent requests</p>
             ))}
 
           {activeTab === "connections" &&
             (connections.length > 0 ? (
               connections.map((conn) => renderCard(conn, "connection"))
             ) : (
-              <p className="text-center text-gray-400 col-span-2">
-                No connections yet
-              </p>
+              <p className="text-center text-white/70 col-span-2 select-text">No connections yet</p>
             ))}
         </div>
       </div>
+
+      <style jsx>{`
+        .blur-3xl {
+          filter: blur(28px);
+        }
+        @media (min-width: 768px) {
+          div[style] {
+            margin-top: 1.5rem;
+          }
+        }
+        @media (max-width: 520px) {
+          .max-w-5xl { padding: 1rem; border-radius: 1rem; }
+        }
+      `}</style>
     </div>
   );
 }
 
-function ChatButton({ userId }) {
+function ChatButton({ userId, userName }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
+  // Loading overlay + animation before open chat
   const handleChat = async () => {
     setLoading(true);
     try {
@@ -339,32 +387,59 @@ function ChatButton({ userId }) {
       const data = await res.json();
       if (!res.ok) {
         console.error("Conversation create failed", data);
+        toast?.error?.(data?.error || "Failed to open chat");
+        setLoading(false);
         return;
       }
 
       const conv =
-        data.conversation?._id ||
+        (data.conversation && data.conversation._id) ||
         data.conversationId ||
-        data.conversationId?._id;
+        (data.conversationId && data.conversationId._id);
+
       if (conv) {
-        // ✅ Also persist last conversation for direct chat reloads
         localStorage.setItem("last_conversation_id", conv);
-        router.push(`/chat/${conv}`);
+
+        // Small delay so user sees the loading animation before navigation
+        setTimeout(() => {
+          router.push(`/chat/${conv}`);
+        }, 600);
+      } else {
+        setLoading(false);
       }
     } catch (e) {
       console.error(e);
-    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <button
-      onClick={handleChat}
-      disabled={loading}
-      className="bg-indigo-500 px-3 py-1 rounded-md text-sm hover:bg-indigo-600 transition"
-    >
-      {loading ? "Opening..." : "Chat"}
-    </button>
+    <>
+      <button
+        onClick={handleChat}
+        disabled={loading}
+        className="bg-white text-[#1d365e] px-4 py-1 rounded-md text-sm font-semibold hover:scale-105 transition-transform disabled:opacity-60"
+        aria-label={`Open chat with ${userName}`}
+      >
+        {loading ? "Opening..." : "Chat"}
+      </button>
+
+      {loading && (
+        // Fullscreen loading overlay to indicate chat opening (does not change existing flow)
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+        >
+          <div className="bg-white/5 p-6 rounded-2xl flex flex-col items-center gap-3 shadow-lg">
+            <svg className="animate-spin h-10 w-10 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+            <p className="text-white font-medium">Opening chat with {userName}...</p>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
