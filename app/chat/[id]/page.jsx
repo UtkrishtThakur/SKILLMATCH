@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import ChatBox from "@/components/ChatBox";
-import ChatList from "@/components/ChatList";
+import ChatList from "@/components/Chatlist";
 import MessageBubble from "@/components/MessageBubble";
 import Pusher from "pusher-js";
 import { toast } from "react-hot-toast";
