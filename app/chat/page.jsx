@@ -1,72 +1,83 @@
-'use client';
+"use client";
 
 import React, { useEffect, useState } from "react";
-import ChatList from "@/components/ChatList";
-import Pusher from "pusher-js";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { toast } from "react-hot-toast";
 
-export default function ChatIndexPage() {
-  const [currentUserId, setCurrentUserId] = useState(null);
+
+export default function ChatPage() {
+  const [conversations, setConversations] = useState([]);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
-  // load user/token
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const storedUser = JSON.parse(localStorage.getItem("skillmatch_user") || localStorage.getItem("user") || "null");
-      const userId = storedUser?._id || storedUser?.id || null;
-      const token = localStorage.getItem("token");
-      if (!userId || !token) {
-        router.push("/auth/login");
-        return;
+    const fetchConversations = async () => {
+      try {
+        const res = await fetch("/api/conversations", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) throw new Error("Failed to fetch conversations");
+        const data = await res.json();
+        setConversations(data);
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to load conversations");
+      } finally {
+        setLoading(false);
       }
-      setCurrentUserId(userId);
-    } catch (err) {
-      console.error("Failed to parse local user:", err);
-      router.push("/auth/login");
-    }
-  }, [router]);
-
-  // listen for new conversation events and ask ChatList to refresh via window event
-  useEffect(() => {
-    if (!currentUserId) return;
-    const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY, {
-      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
-      encrypted: true,
-    });
-
-    const channel = pusher.subscribe(`user-${currentUserId}`);
-    const handleNewConversation = (conv) => {
-      window.dispatchEvent(new CustomEvent("refreshChatList", { detail: conv }));
     };
 
-    channel.bind("new-conversation", handleNewConversation);
-    return () => {
-      channel.unbind("new-conversation", handleNewConversation);
-      pusher.unsubscribe(`user-${currentUserId}`);
-    };
-  }, [currentUserId]);
+    if (token) fetchConversations();
+  }, [token]);
 
-  if (!currentUserId) {
+  const handleSelectConversation = (conversationId) => {
+    router.push(`/chat/${conversationId}`);
+  };
+
+  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-white">
-        <p className="animate-pulse text-[#1d365e]">Initializing chat...</p>
+      <div className="flex justify-center items-center h-screen bg-gray-950 text-white">
+        Loading chats...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white flex items-start justify-center px-4 py-8">
-      <div className="w-full max-w-6xl bg-[#1d365e] text-white rounded-3xl p-8 shadow-2xl border border-white/20">
-        <h2 className="text-2xl font-bold mb-4 text-center">Your Chats</h2>
-        <div className="flex gap-6">
-          <div className="w-80 md:w-96 bg-white/6 rounded-2xl p-3 overflow-y-auto">
-            <ChatList currentUserId={currentUserId} />
+    <div className="flex flex-col h-screen bg-gray-950 text-white">
+      <h1 className="text-3xl font-bold p-4 border-b border-gray-800">Chats</h1>
+      <div className="flex-1 overflow-y-auto">
+        {conversations.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-gray-400">
+            No chats yet
           </div>
-          <div className="flex-1 bg-white/6 rounded-2xl p-8 flex items-center justify-center">
-            <p className="text-white/60">Select a conversation to start messaging.</p>
-          </div>
-        </div>
+        ) : (
+          conversations.map((conv) => (
+            <div
+              key={conv._id}
+              onClick={() => handleSelectConversation(conv._id)}
+              className="flex items-center p-4 cursor-pointer hover:bg-gray-800 transition"
+            >
+              <Image
+                src={conv.otherUser?.image || "/default-avatar.png"}
+                alt={conv.otherUser?.name || "User"}
+                width={45}
+                height={45}
+                className="rounded-full mr-3"
+              />
+              <div className="flex flex-col">
+                <span className="font-semibold">{conv.otherUser?.name || "Unknown"}</span> 
+                <span className="text-sm text-gray-400 truncate w-60">
+                  {conv.lastMessage || "No messages yet"}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
