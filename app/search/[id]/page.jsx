@@ -1,5 +1,7 @@
-'use client';
+"use client";
+
 import { useState, useEffect } from "react";
+import Image from "next/image";
 
 const topSearchesSample = [
   "React",
@@ -20,8 +22,9 @@ export default function SearchPage() {
 
   useEffect(() => setAnimate(true), []);
 
-  const handleSearch = async () => {
-    if (!query.trim()) return alert("Please enter a search term!");
+  const handleSearch = async (overrideQuery) => {
+    const term = overrideQuery !== undefined ? overrideQuery : query;
+    if (!term.trim()) return alert("Please enter a search term!");
     setLoading(true);
 
     try {
@@ -32,37 +35,10 @@ export default function SearchPage() {
         return;
       }
 
-      const res = await fetch(`/api/search?query=${encodeURIComponent(query)}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const data = await res.json();
-      if (res.ok) setResults(data.users || []);
-      else {
-        alert(data.error || "Search failed");
-        setResults([]);
-      }
-    } catch (err) {
-      console.error("Search error:", err);
-      setResults([]);
-    }
-
-    setLoading(false);
-  };
-
-  const handleTopSearchClick = async (term) => {
-    setQuery(term);
-    setLoading(true);
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        alert("Please login first!");
-        setLoading(false);
-        return;
-      }
       const res = await fetch(`/api/search?query=${encodeURIComponent(term)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       const data = await res.json();
       if (res.ok) setResults(data.users || []);
       else {
@@ -73,16 +49,14 @@ export default function SearchPage() {
       console.error("Search error:", err);
       setResults([]);
     }
+
     setLoading(false);
   };
 
   const handleConnect = async (receiverId, name) => {
     try {
       const token = localStorage.getItem("token");
-      if (!token) {
-        alert("Please login first!");
-        return;
-      }
+      if (!token) return alert("Please login first!");
 
       const res = await fetch("/api/connect", {
         method: "POST",
@@ -94,7 +68,6 @@ export default function SearchPage() {
       });
 
       const data = await res.json();
-
       if (res.ok) {
         alert(`Connection request sent to ${name}!`);
       } else {
@@ -107,179 +80,117 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex items-start justify-center px-4 sm:px-6 lg:px-8 py-12 relative overflow-hidden">
-      {/* Decorative subtle blobs (hidden on smallest screens) */}
-      <svg
-        aria-hidden="true"
-        className="hidden sm:block absolute -top-44 -left-44 w-[480px] h-[480px] opacity-6 blur-3xl"
-        viewBox="0 0 600 600"
-      >
-        <defs>
-          <radialGradient id="sBlob1" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <circle cx="300" cy="300" r="300" fill="url(#sBlob1)" />
-      </svg>
+    <div className="min-h-screen w-full bg-[#0a0a0a] text-white pt-32 pb-20 px-4 md:px-8 relative overflow-hidden selection:bg-purple-500/30">
 
-      <svg
-        aria-hidden="true"
-        className="hidden sm:block absolute -bottom-44 -right-44 w-[480px] h-[480px] opacity-6 blur-3xl"
-        viewBox="0 0 600 600"
-      >
-        <defs>
-          <radialGradient id="sBlob2" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <circle cx="300" cy="300" r="300" fill="url(#sBlob2)" />
-      </svg>
+      {/* Background Aurora */}
+      <div className="fixed inset-0 z-0 animate-aurora opacity-20 mix-blend-screen pointer-events-none"></div>
 
-      {/* Centered larger card matching login style (white page, dark card) */}
-      <div
-        className={`relative z-20 w-full max-w-5xl bg-[#1d365e] text-white rounded-3xl p-8 sm:p-10 shadow-2xl border border-white/20 transition-all duration-700 ease-out ${animate ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
-        style={{ marginTop: "2.5rem" }}
-      >
-        {/* Title */}
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-center mb-6 tracking-tight select-text">
-          🔍 Find Learners by Skill or Name
-        </h1>
+      <div className="max-w-6xl mx-auto relative z-10 flex flex-col items-center">
 
-        {/* Top Searches */}
-        <div className="flex flex-wrap justify-center gap-3 mb-6">
+        {/* Header Section */}
+        <div className={`text-center mb-12 transition-all duration-700 ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+          <h1 className="text-4xl md:text-6xl font-black tracking-tight mb-4">
+            Find your <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400">Teammate.</span>
+          </h1>
+          <p className="text-slate-400 text-lg max-w-xl mx-auto">
+            Search by skill, name, or role. Discover the talent you need.
+          </p>
+        </div>
+
+        {/* Search Bar Container */}
+        <div className={`w-full max-w-2xl relative mb-8 transition-all duration-700 delay-100 ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+          <div className="absolute inset-0 bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-2xl blur opacity-25 -z-10"></div>
+          <div className="relative flex items-center bg-[#111] border border-white/10 rounded-2xl p-2 shadow-2xl">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              placeholder="Search e.g. React, Python, UI Design..."
+              className="flex-1 bg-transparent text-white placeholder-slate-500 px-6 py-3 focus:outline-none text-lg"
+            />
+            <button
+              onClick={() => handleSearch()}
+              disabled={loading}
+              className="px-8 py-3 bg-white text-black font-bold rounded-xl hover:bg-slate-200 transition-colors disabled:opacity-50"
+            >
+              {loading ? "Searching..." : "Search"}
+            </button>
+          </div>
+        </div>
+
+        {/* Tags */}
+        <div className={`flex flex-wrap justify-center gap-3 mb-16 max-w-3xl transition-all duration-700 delay-200 ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
           {topSearchesSample.map((term) => (
             <button
               key={term}
-              onClick={() => handleTopSearchClick(term)}
-              className="px-4 py-2 rounded-full bg-white/10 text-white font-semibold shadow-sm hover:scale-105 hover:bg-white/20 transition-transform focus:outline-none focus:ring-4 focus:ring-white/10"
-              type="button"
-              aria-label={`Search for ${term}`}
+              onClick={() => {
+                setQuery(term);
+                handleSearch(term);
+              }}
+              className="px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-slate-300 text-sm hover:bg-white/10 hover:border-white/30 transition-all font-medium"
             >
               {term}
             </button>
           ))}
         </div>
 
-        {/* Search bar */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="e.g. React, Python, DSA, AI..."
-            className="w-full sm:max-w-xl px-4 py-3 rounded-2xl border border-white/20 bg-white/6 text-white placeholder-white/70 shadow-sm focus:outline-none focus:ring-4 focus:ring-white/10 transition"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleSearch();
-              }
-            }}
-            aria-label="Search input"
-            spellCheck={false}
-          />
-          <button
-            onClick={handleSearch}
-            disabled={loading}
-            className="mt-3 sm:mt-0 px-6 py-3 rounded-2xl bg-white text-[#1d365e] font-semibold shadow hover:scale-105 transition-transform disabled:opacity-60 disabled:cursor-not-allowed"
-            aria-label="Execute search"
-            type="button"
-          >
-            {loading ? "Searching..." : "Search"}
-          </button>
-        </div>
-
-        {/* Results */}
-        <main
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
-          aria-live="polite"
-          aria-label="Search results"
-        >
+        {/* Results Grid */}
+        <div className={`w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 transition-all duration-700 delay-300 ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
           {results.length > 0 ? (
             results.map((user) => (
-              <article
+              <div
                 key={user._id}
-                className="bg-white/8 rounded-2xl p-6 flex flex-col items-center text-center border border-white/20 hover:shadow-xl hover:scale-[1.02] transition-transform duration-200"
-                tabIndex={0}
-                aria-label={`Profile card for ${user.name}`}
+                className="group relative bg-[#111] border border-white/10 rounded-3xl p-6 hover:border-white/20 transition-all hover:-translate-y-1 overflow-hidden"
               >
-                <img
-                  src={user.profilePhoto || "/default-avatar.png"}
-                  alt={`${user.name} profile photo`}
-                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-full mb-4 border-4 border-white/10 object-cover shadow select-none"
-                  draggable={false}
-                />
-                <h2 className="text-xl sm:text-2xl font-semibold text-white mb-1 truncate max-w-full">
-                  {user.name}
-                </h2>
+                <div className="absolute inset-0 bg-gradient-to-br from-violet-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
 
-                {/* Description — keep as before */}
-                <p className="text-white/70 text-sm mb-3 line-clamp-3 h-[4.2rem] overflow-hidden text-ellipsis">
-                  {user.description || "No description available."}
-                </p>
+                <div className="relative z-10 flex flex-col h-full">
+                  <div className="flex items-center gap-4 mb-4">
+                    <Image
+                      src={user.profilePhoto || "/default-avatar.png"}
+                      alt={user.name}
+                      width={60}
+                      height={60}
+                      className="rounded-full object-cover border border-white/20"
+                    />
+                    <div>
+                      <h3 className="text-lg font-bold text-white leading-tight">{user.name}</h3>
+                      <p className="text-slate-500 text-xs mt-0.5 capitalize">{user.role || "Member"}</p>
+                    </div>
+                  </div>
 
-                {/* Skills */}
-                <div className="flex flex-wrap gap-2 justify-center mb-4 w-full max-w-[260px]">
-                  {user.skills?.slice(0, 5).map((skill, i) => (
-                    <span
-                      key={i}
-                      className="px-3 py-1 text-xs bg-white/10 text-white rounded-full shadow-sm select-text"
-                    >
-                      {skill}
-                    </span>
-                  ))}
-                </div>
-
-                {/* Projects */}
-                {user.projects?.length > 0 && (
-                  <div className="mb-4 text-sm text-white/70 truncate max-w-[260px]">
-                    <strong className="text-white/80">Projects:</strong>{" "}
-                    {user.projects.slice(0, 2).map((proj, i) => (
-                      <a
-                        key={i}
-                        href={proj}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline hover:text-white/90 ml-1 truncate inline-block max-w-[120px]"
-                        title={proj}
-                      >
-                        {proj.length > 25 ? proj.slice(0, 25) + "..." : proj}
-                      </a>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {(user.skills || []).slice(0, 4).map((skill, i) => (
+                      <span key={i} className="text-[10px] px-2 py-1 rounded bg-white/5 text-slate-400 border border-white/5">
+                        {skill}
+                      </span>
                     ))}
                   </div>
-                )}
 
-                <button
-                  onClick={() => handleConnect(user._id, user.name)}
-                  className="mt-auto bg-white/10 hover:bg-white/20 px-5 py-2 rounded-2xl font-semibold text-white shadow-sm hover:scale-105 transition-transform"
-                  aria-label={`Send connection request to ${user.name}`}
-                >
-                  Connect
-                </button>
-              </article>
+                  <p className="text-slate-400 text-sm line-clamp-2 mb-6 flex-1">
+                    {user.description || "No bio available."}
+                  </p>
+
+                  <button
+                    onClick={() => handleConnect(user._id, user.name)}
+                    className="w-full py-3 rounded-xl bg-white text-black font-bold text-sm hover:bg-slate-200 transition-colors shadow-lg"
+                  >
+                    Connect
+                  </button>
+                </div>
+              </div>
             ))
           ) : (
             !loading && (
-              <p className="col-span-full text-center text-white/80 text-base mt-8 select-text">
-                No users found. Try another search term!
+              <p className="col-span-full text-center text-slate-500">
+                Try searching for a skill or role to see results.
               </p>
             )
           )}
-        </main>
+        </div>
+
       </div>
-
-      <style jsx>{`
-        .blur-3xl {
-          filter: blur(28px);
-        }
-
-        @media (max-width: 480px) {
-          .max-w-5xl { padding: 16px; }
-          h1 { font-size: 1.25rem; }
-          input { padding: 10px; }
-        }
-      `}</style>
     </div>
   );
 }

@@ -1,6 +1,8 @@
-'use client';
+"use client";
+
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function ProfilePage({ params }) {
   const { id } = params;
@@ -21,19 +23,15 @@ export default function ProfilePage({ params }) {
   const [profilePhoto, setProfilePhoto] = useState(null);
   const fileInputRef = useRef(null);
 
-  // Animation & UI state
+  // UI States
   const [loadingUpdate, setLoadingUpdate] = useState(false);
   const [loadingPassword, setLoadingPassword] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
-  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
-  const [showPasswordSuccess, setShowPasswordSuccess] = useState(false);
-  const [showErrorMessage, setShowErrorMessage] = useState("");
-  const [showPasswordError, setShowPasswordError] = useState("");
   const [animate, setAnimate] = useState(false);
 
   useEffect(() => setAnimate(true), []);
 
-  // Fetch profile on mount
+  // Fetch
   useEffect(() => {
     const fetchUser = async () => {
       const token = localStorage.getItem("token");
@@ -41,13 +39,11 @@ export default function ProfilePage({ params }) {
         router.push("/auth/login");
         return;
       }
-
       try {
         const res = await fetch(`/api/user/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
-
         if (res.ok) {
           setUserData(data.user);
           setForm({ name: data.user.name, email: data.user.email });
@@ -56,31 +52,21 @@ export default function ProfilePage({ params }) {
           setDescription(data.user.description || "");
           setProfilePhoto(data.user.profilePhoto || null);
         } else {
-          alert(data.error || "Unauthorized");
           router.push("/auth/login");
         }
       } catch (err) {
         console.error("Profile fetch error:", err);
-        alert("Something went wrong.");
-        router.push("/auth/login");
       }
     };
-
     fetchUser();
   }, [id, router]);
 
-  // Update profile
+  // Update
   const handleUpdate = async (e) => {
     e.preventDefault();
     setLoadingUpdate(true);
-    setShowSuccessMessage(false);
-    setShowErrorMessage("");
     const token = localStorage.getItem("token");
-    if (!token) {
-      setShowErrorMessage("Login required!");
-      setLoadingUpdate(false);
-      return;
-    }
+    if (!token) return;
 
     const updateData = {
       name: form.name || userData.name,
@@ -93,76 +79,52 @@ export default function ProfilePage({ params }) {
     try {
       const res = await fetch(`/api/user/${id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(updateData),
       });
-
       const data = await res.json();
       if (res.ok) {
         setUserData(data.user);
         localStorage.setItem("user", JSON.stringify(data.user));
         setEditing(false);
-        setShowSuccessMessage(true);
-        setTimeout(() => setShowSuccessMessage(false), 4000);
+        alert("Profile updated!");
       } else {
-        setShowErrorMessage(data.error || "Update failed");
+        alert(data.error || "Update failed");
       }
     } catch (err) {
-      console.error("Update error:", err);
-      setShowErrorMessage("Something went wrong while updating profile.");
+      console.error(err);
     }
     setLoadingUpdate(false);
   };
 
-  // Change password
+  // Password
   const handlePasswordChange = async (e) => {
     e.preventDefault();
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) return alert("Passwords mismatch");
     setLoadingPassword(true);
-    setShowPasswordSuccess(false);
-    setShowPasswordError("");
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setShowPasswordError("Passwords do not match!");
-      setLoadingPassword(false);
-      return;
-    }
 
     const token = localStorage.getItem("token");
-    if (!token) {
-      setShowPasswordError("Login required!");
-      setLoadingPassword(false);
-      return;
-    }
-
     try {
       const res = await fetch(`/api/user/${id}/password`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(passwordForm),
       });
-
       const data = await res.json();
       if (res.ok) {
-        setShowPasswordSuccess(true);
-        setPasswordForm({ oldPassword: "", newPassword: "", confirmPassword: "" });
+        alert("Password changed!");
         setChangingPassword(false);
-        setTimeout(() => setShowPasswordSuccess(false), 4000);
+        setPasswordForm({ oldPassword: "", newPassword: "", confirmPassword: "" });
       } else {
-        setShowPasswordError(data.error || "Password change failed");
+        alert(data.error || "Failed");
       }
     } catch (err) {
-      console.error("Password change error:", err);
-      setShowPasswordError("Something went wrong while changing password.");
+      console.error(err);
     }
     setLoadingPassword(false);
   };
 
-  // Profile photo preview with animation
+  // Photo
   const handleProfilePhotoChange = (e) => {
     const file = e.target.files[0];
     if (file && file.type.startsWith("image/")) {
@@ -173,345 +135,202 @@ export default function ProfilePage({ params }) {
         setPhotoUploading(false);
       };
       reader.readAsDataURL(file);
-    } else {
-      alert("Select a valid image file.");
     }
   };
 
-  const triggerFileInput = () => fileInputRef.current?.click();
-
-  // Helpers for Skills & Projects display
-  const renderSkills = () => {
-    const skillList = skills.split(/[,\n]+/).map((s) => s.trim()).filter(Boolean);
-    return skillList.length
-      ? skillList.map((skill, i) => (
-          <span
-            key={i}
-            className="px-3 py-1 rounded-full bg-white text-[#1d365e] text-sm font-medium shadow-sm select-text transform transition-all duration-200 hover:scale-105"
-            style={{ marginRight: 6, marginBottom: 6 }}
-          >
-            {skill}
-          </span>
-        ))
-      : <i className="text-white/60 select-text">No skills added yet.</i>;
-  };
-
-  const renderProjects = () => {
-    const projectList = projects.split(/\n/).map((p) => p.trim()).filter(Boolean);
-    return projectList.length
-      ? projectList.map((proj, i) => (
-          <a
-            key={i}
-            href={proj}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-white underline hover:text-white/80 select-text break-all"
-            style={{ display: "block", marginBottom: 6 }}
-          >
-            {proj}
-          </a>
-        ))
-      : <i className="text-white/60 select-text">No projects added yet.</i>;
-  };
-
-  // UI-only parsing of description into From / About (no storage changes)
-  const parseDescription = (desc) => {
-    if (!desc || !desc.trim()) return { from: "", about: "" };
-    if (desc.includes("\n\n")) {
-      const [first, ...rest] = desc.split("\n\n");
-      return { from: first.trim(), about: rest.join("\n\n").trim() };
-    }
-    if (desc.includes("---")) {
-      const [first, ...rest] = desc.split("---");
-      return { from: first.trim(), about: rest.join("---").trim() };
-    }
-    const lines = desc.split("\n").map((l) => l.trim()).filter(Boolean);
-    if (lines.length === 1) {
-      const single = lines[0];
-      if (single.length < 40 && (/[,]/.test(single) || /\bfrom\b/i.test(single) || /^[A-Za-z\s]+$/.test(single))) {
-        return { from: single, about: "" };
-      }
-      return { from: "", about: single };
-    }
-    return { from: lines[0], about: lines.slice(1).join(" ") };
-  };
-
-  if (!userData)
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <p className="animate-pulse text-[#1d365e] text-lg select-none">Loading profile...</p>
-      </div>
-    );
-
-  const { from: locationPart, about: aboutPart } = parseDescription(description);
+  if (!userData) return (
+    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="animate-spin w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full font-semibold"></div>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-white flex items-start justify-center px-4 sm:px-6 lg:px-8 py-50 select-none relative overflow-hidden">
-      {/* Decorative subtle blobs like login page (hidden on very small screens) */}
-      <svg
-        aria-hidden="true"
-        className="hidden sm:block absolute -top-36 -left-36 w-[420px] h-[420px] opacity-8 blur-3xl"
-        viewBox="0 0 600 600"
-      >
-        <defs>
-          <radialGradient id="pBlob1" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <circle cx="300" cy="300" r="300" fill="url(#pBlob1)" />
-      </svg>
+    <div className="min-h-screen w-full bg-[#0a0a0a] text-white pt-24 pb-20 px-4 md:px-8 relative overflow-hidden selection:bg-emerald-500/30">
 
-      <svg
-        aria-hidden="true"
-        className="hidden sm:block absolute -bottom-36 -right-36 w-[420px] h-[420px] opacity-6 blur-3xl"
-        viewBox="0 0 600 600"
-      >
-        <defs>
-          <radialGradient id="pBlob2" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <circle cx="300" cy="300" r="300" fill="url(#pBlob2)" />
-      </svg>
+      {/* Background Aurora */}
+      <div className="fixed inset-0 z-0 animate-aurora opacity-20 mix-blend-screen pointer-events-none"></div>
 
-      {/* Centered card matching Login UI style: dark card on white page, spaced from navbar */}
-      <div
-        className={`relative z-20 w-full max-w-4xl bg-[#1d365e] text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-2xl border border-white/20 transition-all duration-700 ease-out ${animate ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
-        style={{ marginTop: "3.5rem" }}
-      >
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-4 mb-6">
-          <div className="flex items-center gap-4">
-            <div
-              className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-4 border-white object-cover shadow-md cursor-pointer transform transition-transform duration-200 hover:scale-105"
-              onClick={triggerFileInput}
-              title="Change profile photo"
-            >
-              <img
-                src={profilePhoto || "/default-avatar.png"}
-                alt={`${userData.name} profile photo`}
-                className={`w-full h-full object-cover rounded-full select-none transition-all duration-300 ${photoUploading ? "opacity-60 scale-105" : "opacity-100 scale-100"}`}
-                draggable={false}
-              />
-              {photoUploading && (
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-full">
-                  <svg className="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-                  </svg>
-                </div>
-              )}
-              <input type="file" accept="image/*" ref={fileInputRef} onChange={handleProfilePhotoChange} className="hidden" />
+      <div className={`max-w-5xl mx-auto relative z-10 transition-all duration-1000 ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-20'}`}>
+
+        {/* Header Card */}
+        <div className="relative mb-8 rounded-3xl bg-[#111] border border-white/10 p-8 md:p-12 overflow-hidden shadow-2xl">
+          <div className="absolute inset-0 bg-gradient-to-r from-violet-900/30 to-emerald-900/30"></div>
+
+          <div className="relative z-10 flex flex-col md:flex-row items-center md:items-start gap-8">
+            {/* Avatar */}
+            <div className="relative group">
+              <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-[#0a0a0a] overflow-hidden shadow-2xl">
+                <Image
+                  src={profilePhoto || userData.profilePhoto || "/default-avatar.png"}
+                  alt="Profile"
+                  width={160}
+                  height={160}
+                  className={`w-full h-full object-cover transition-all ${photoUploading ? 'opacity-50' : ''}`}
+                />
+              </div>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute bottom-2 right-2 p-2 bg-white text-black rounded-full shadow-lg hover:scale-110 transition-transform"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+              </button>
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleProfilePhotoChange} />
             </div>
 
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold truncate">{userData.name}</h1>
-              <p className="text-white/75 text-sm sm:text-base mt-1 truncate">{userData.email}</p>
-              <p className="text-white/60 text-sm mt-2">{userData.role || "Learner"} • {userData.location || "Location not set"}</p>
+            {/* Info */}
+            <div className="flex-1 text-center md:text-left">
+              <h1 className="text-4xl font-black mb-2">{userData.name}</h1>
+              <p className="text-slate-400 text-lg mb-4">{userData.email}</p>
+              <div className="flex flex-wrap justify-center md:justify-start gap-3">
+                <button
+                  onClick={() => setEditing(!editing)}
+                  className="px-6 py-2 bg-white text-black font-bold rounded-xl hover:bg-slate-200 transition-colors"
+                >
+                  {editing ? "Cancel Edit" : "Edit Profile"}
+                </button>
+                <button
+                  onClick={() => setChangingPassword(!changingPassword)}
+                  className="px-6 py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-colors"
+                >
+                  Security
+                </button>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("user");
+                    router.push("/");
+                  }}
+                  className="px-6 py-2 bg-red-500/10 text-red-400 font-medium rounded-xl hover:bg-red-500/20 transition-colors border border-red-500/20"
+                >
+                  Logout
+                </button>
+              </div>
             </div>
-          </div>
-
-          <div className="flex-shrink-0 flex items-center gap-3">
-            <button
-              onClick={() => {
-                setEditing(true);
-                setForm({ name: userData.name, email: userData.email });
-                setSkills(userData.skills?.join(", ") || "");
-                setProjects(userData.projects?.join("\n") || "");
-                setDescription(userData.description || "");
-                setShowErrorMessage("");
-                setShowSuccessMessage(false);
-              }}
-              className="px-4 py-2 rounded-full bg-white text-[#1d365e] font-semibold shadow hover:scale-105 transition-transform"
-            >
-              Edit Profile
-            </button>
-            <button
-              onClick={() => {
-                setChangingPassword(!changingPassword);
-                setShowPasswordError("");
-                setShowPasswordSuccess(false);
-                setPasswordForm({ oldPassword: "", newPassword: "", confirmPassword: "" });
-              }}
-              className="px-3 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white font-medium transition"
-            >
-              {changingPassword ? "Cancel" : "Change Password"}
-            </button>
           </div>
         </div>
 
-        {/* Grid like login-style stacked sections for smaller devices */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Description block */}
-          <div className="md:col-span-1 bg-white/6 rounded-xl p-4">
-            <h2 className="text-white/90 font-semibold mb-2">Description</h2>
-            <div className="text-sm text-white/70 mb-3">
-              <div className="mb-2">
-                <div className="text-white/80 text-xs">Where I'm from</div>
-                {locationPart ? <div>{locationPart}</div> : <div className="text-white/40 italic">Not specified</div>}
-              </div>
-              <div>
-                <div className="text-white/80 text-xs">Who I am</div>
-                {aboutPart ? <div className="whitespace-pre-wrap">{aboutPart}</div> : (description ? <div className="whitespace-pre-wrap">{description}</div> : <div className="text-white/40 italic">No bio yet</div>)}
-              </div>
-            </div>
+        {/* Content Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-            {editing && (
+          {/* Bio */}
+          <div className="md:col-span-2 bg-[#111] border border-white/10 rounded-3xl p-8">
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400"></span> About Me
+            </h3>
+            {editing ? (
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full mt-2 p-3 rounded-lg bg-white/6 border border-transparent focus:border-white/20 focus:ring-2 focus:ring-white/10 text-white placeholder-white/60 resize-none"
-                rows={4}
-                placeholder="City, Country (blank line) Short bio..."
+                className="w-full h-40 bg-white/5 border border-white/10 rounded-xl p-4 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
+                placeholder="Tell us about yourself..."
               />
+            ) : (
+              <div className="text-slate-300 leading-relaxed whitespace-pre-wrap">
+                {description || "No bio added yet."}
+              </div>
             )}
           </div>
 
-          {/* Skills block */}
-          <div className="md:col-span-1 bg-white/6 rounded-xl p-4">
-            <h2 className="text-white/90 font-semibold mb-2">Major Skills</h2>
-            <div className="mb-2">
-              {!editing ? <div className="flex flex-wrap">{renderSkills()}</div> : (
+          {/* Skills & Projects */}
+          <div className="space-y-6">
+            {/* Skills */}
+            <div className="bg-[#111] border border-white/10 rounded-3xl p-8">
+              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-violet-400"></span> Skills
+              </h3>
+              {editing ? (
                 <textarea
                   value={skills}
                   onChange={(e) => setSkills(e.target.value)}
-                  placeholder="comma separated or new lines"
-                  className="w-full p-3 rounded-lg bg-white/6 border border-transparent focus:border-white/20 focus:ring-2 focus:ring-white/10 text-white placeholder-white/60 resize-y"
-                  rows={5}
+                  className="w-full h-32 bg-white/5 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-violet-500/50"
+                  placeholder="React, Node, css..."
                 />
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {(skills.split(/[,\n]/).filter(Boolean).length > 0) ? (
+                    skills.split(/[,\n]/).map(s => s.trim()).filter(Boolean).map((skill, i) => (
+                      <span key={i} className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-sm text-slate-300">
+                        {skill}
+                      </span>
+                    ))
+                  ) : <span className="text-slate-500 italic">No skills added.</span>}
+                </div>
               )}
             </div>
-          </div>
 
-          {/* Projects block */}
-          <div className="md:col-span-1 bg-white/6 rounded-xl p-4">
-            <h2 className="text-white/90 font-semibold mb-2">Projects</h2>
-            <div className="mb-2">
-              {!editing ? <div className="flex flex-col">{renderProjects()}</div> : (
+            {/* Projects */}
+            <div className="bg-[#111] border border-white/10 rounded-3xl p-8">
+              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-fuchsia-400"></span> Projects
+              </h3>
+              {editing ? (
                 <textarea
                   value={projects}
                   onChange={(e) => setProjects(e.target.value)}
-                  placeholder="One link per line"
-                  className="w-full p-3 rounded-lg bg-white/6 border border-transparent focus:border-white/20 focus:ring-2 focus:ring-white/10 text-white placeholder-white/60 resize-none"
-                  rows={5}
+                  className="w-full h-32 bg-white/5 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-fuchsia-500/50"
+                  placeholder="https://github.com/..."
                 />
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {(projects.split('\n').filter(Boolean).length > 0) ? (
+                    projects.split('\n').map(p => p.trim()).filter(Boolean).map((proj, i) => (
+                      <a key={i} href={proj} target="_blank" className="text-fuchsia-400 hover:text-fuchsia-300 text-sm truncate underline">
+                        {proj}
+                      </a>
+                    ))
+                  ) : <span className="text-slate-500 italic">No projects listed.</span>}
+                </div>
               )}
             </div>
           </div>
+
+          {/* Save Button (Sticky) */}
+          {editing && (
+            <div className="col-span-full flex justify-end">
+              <button
+                onClick={handleUpdate}
+                disabled={loadingUpdate}
+                className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-green-500 text-white font-bold rounded-xl shadow-lg hover:scale-105 transition-transform"
+              >
+                {loadingUpdate ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          )}
+
+          {/* Password Change Form */}
+          {changingPassword && (
+            <div className="col-span-full bg-[#111] border border-red-500/20 rounded-3xl p-8 animate-in fade-in slide-in-from-bottom-4">
+              <h3 className="text-xl font-bold mb-6 text-red-400">Change Password</h3>
+              <form onSubmit={handlePasswordChange} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <input
+                  type="password" placeholder="Old Password"
+                  value={passwordForm.oldPassword}
+                  onChange={e => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })}
+                  className="bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-red-500/50"
+                />
+                <input
+                  type="password" placeholder="New Password"
+                  value={passwordForm.newPassword}
+                  onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                  className="bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-red-500/50"
+                />
+                <input
+                  type="password" placeholder="Confirm Password"
+                  value={passwordForm.confirmPassword}
+                  onChange={e => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                  className="bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-red-500/50"
+                />
+                <div className="md:col-span-3 flex justify-end gap-3">
+                  <button type="button" onClick={() => setChangingPassword(false)} className="px-4 py-2 text-slate-400">Cancel</button>
+                  <button type="submit" className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold">Update Password</button>
+                </div>
+              </form>
+            </div>
+          )}
+
         </div>
 
-        {/* Edit form area (shown when editing) */}
-        {editing && (
-          <form onSubmit={handleUpdate} className="mt-6 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="text-white/80 text-sm">Name</label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full mt-2 p-3 rounded-lg bg-white/6 border border-transparent focus:border-white/20 focus:ring-2 focus:ring-white/10 text-white placeholder-white/60"
-                  required
-                />
-              </div>
-              <div>
-                <label className="text-white/80 text-sm">Email (Locked)</label>
-                <input
-                  type="email"
-                  value={form.email}
-                  disabled
-                  className="w-full mt-2 p-3 rounded-lg bg-gray-800 border border-gray-700 cursor-not-allowed text-white"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setEditing(false);
-                  setForm({ name: userData.name, email: userData.email });
-                  setSkills(userData.skills?.join(", ") || "");
-                  setProjects(userData.projects?.join("\n") || "");
-                  setDescription(userData.description || "");
-                  setShowErrorMessage("");
-                }}
-                className="px-4 py-2 rounded-lg bg-gray-800 text-white"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="submit"
-                disabled={loadingUpdate}
-                className="px-4 py-2 rounded-lg bg-white text-[#1d365e] font-semibold"
-              >
-                {loadingUpdate ? "Saving..." : "Save"}
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* Password change area */}
-        {changingPassword && (
-          <form onSubmit={handlePasswordChange} className="mt-6 space-y-3 max-w-md">
-            <input
-              type="password"
-              placeholder="Old password"
-              value={passwordForm.oldPassword}
-              onChange={(e) => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })}
-              className="w-full p-3 rounded-lg bg-white/6 border border-transparent focus:border-white/20 focus:ring-2 focus:ring-white/10 text-white"
-              required
-              disabled={loadingPassword}
-            />
-            <input
-              type="password"
-              placeholder="New password"
-              value={passwordForm.newPassword}
-              onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-              className="w-full p-3 rounded-lg bg-white/6 border border-transparent focus:border-white/20 focus:ring-2 focus:ring-white/10 text-white"
-              required
-              minLength={6}
-              disabled={loadingPassword}
-            />
-            <input
-              type="password"
-              placeholder="Confirm password"
-              value={passwordForm.confirmPassword}
-              onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-              className="w-full p-3 rounded-lg bg-white/6 border border-transparent focus:border-white/20 focus:ring-2 focus:ring-white/10 text-white"
-              required
-              minLength={6}
-              disabled={loadingPassword}
-            />
-            <div className="flex gap-3 justify-end">
-              <button type="button" onClick={() => setChangingPassword(false)} className="px-4 py-2 rounded-lg bg-gray-800 text-white">
-                Cancel
-              </button>
-              <button type="submit" disabled={loadingPassword} className="px-4 py-2 rounded-lg bg-white text-[#1d365e] font-semibold">
-                {loadingPassword ? "Updating..." : "Update Password"}
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* Messages */}
-        {showErrorMessage && <p className="mt-4 text-red-400">{showErrorMessage}</p>}
-        {showSuccessMessage && <p className="mt-4 text-green-400">Profile updated successfully!</p>}
-        {showPasswordError && <p className="mt-4 text-red-400">{showPasswordError}</p>}
-        {showPasswordSuccess && <p className="mt-4 text-green-400">Password changed successfully!</p>}
       </div>
-
-      <style jsx>{`
-        .blur-3xl {
-          filter: blur(28px);
-        }
-        @media (max-width: 640px) {
-          .max-w-4xl { padding: 12px; }
-        }
-      `}</style>
     </div>
   );
 }

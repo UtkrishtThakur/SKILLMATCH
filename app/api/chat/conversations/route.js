@@ -3,6 +3,7 @@ import dbConnect from "@/lib/db";
 import Conversation from "@/models/conversation";
 import User from "@/models/User";
 import { verifyToken } from "@/utils/auth";
+import "@/models/Chat"; // Register Message model for population
 
 // ✅ POST — Create or get an existing conversation between two users
 export async function POST(req) {
@@ -29,6 +30,23 @@ export async function POST(req) {
     const receiver = await User.findById(receiverId);
     if (!sender || !receiver) {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
+    }
+
+    // 🔒 Enforce Connection Status: Must be "accepted"
+    const Connection = (await import("@/models/connect")).default;
+    const connection = await Connection.findOne({
+      $or: [
+        { senderId, receiverId },
+        { senderId: receiverId, receiverId: senderId },
+      ],
+      status: "accepted",
+    });
+
+    if (!connection) {
+      return NextResponse.json(
+        { message: "You are not connected with this user." },
+        { status: 403 }
+      );
     }
 
     // Check if conversation already exists

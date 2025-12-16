@@ -17,6 +17,20 @@ export async function GET(req, { params }) {
     if (!conversationId)
       return NextResponse.json({ message: "Missing conversationId" }, { status: 400 });
 
+    // 🔒 Security: Ensure user is a participant (Prevent IDOR)
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return NextResponse.json({ message: "Conversation not found" }, { status: 404 });
+    }
+
+    const isParticipant = conversation.participants.some(
+      (p) => String(p) === String(tokenData.id)
+    );
+
+    if (!isParticipant) {
+      return NextResponse.json({ message: "Unauthorized access to this chat" }, { status: 403 });
+    }
+
     const raw = await Chat.find({ conversationId })
       .populate("senderId", "name email profilePhotoUrl") // use URL instead of base64
       .sort({ createdAt: 1 })
@@ -29,11 +43,11 @@ export async function GET(req, { params }) {
       createdAt: m.createdAt,
       sender: m.senderId
         ? {
-            _id: m.senderId._id || m.senderId,
-            name: m.senderId.name,
-            email: m.senderId.email,
-            profilePhoto: m.senderId.profilePhotoUrl || null, // only URL
-          }
+          _id: m.senderId._id || m.senderId,
+          name: m.senderId.name,
+          email: m.senderId.email,
+          profilePhoto: m.senderId.profilePhotoUrl || null, // only URL
+        }
         : null,
     }));
 
@@ -59,7 +73,7 @@ export async function POST(req, { params }) {
     try {
       const rawText = await req.text();
       if (rawText) body = JSON.parse(rawText);
-    } catch {}
+    } catch { }
 
     const content = body?.content ?? body?.message ?? body?.text ?? null;
     const tempId = body?.tempId ?? null;
@@ -69,6 +83,14 @@ export async function POST(req, { params }) {
     const conversation = await Conversation.findById(conversationId);
     if (!conversation)
       return NextResponse.json({ message: "Conversation not found" }, { status: 404 });
+
+    // 🔒 Security: Ensure user is a participant
+    const isParticipant = conversation.participants.some(
+      (p) => String(p) === String(tokenData.id)
+    );
+    if (!isParticipant) {
+      return NextResponse.json({ message: "Unauthorized to send messages to this chat" }, { status: 403 });
+    }
 
     const message = await Chat.create({
       conversationId,
@@ -88,11 +110,11 @@ export async function POST(req, { params }) {
       createdAt: populated.createdAt,
       sender: populated.senderId
         ? {
-            _id: populated.senderId._id || populated.senderId,
-            name: populated.senderId.name,
-            email: populated.senderId.email,
-            profilePhoto: populated.senderId.profilePhotoUrl || null, // URL only
-          }
+          _id: populated.senderId._id || populated.senderId,
+          name: populated.senderId.name,
+          email: populated.senderId.email,
+          profilePhoto: populated.senderId.profilePhotoUrl || null, // URL only
+        }
         : null,
     };
 

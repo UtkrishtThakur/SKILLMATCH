@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "react-hot-toast";
+import Link from "next/link";
 
 export default function ConnectPage({ params }) {
   const [activeTab, setActiveTab] = useState("received");
@@ -12,18 +13,17 @@ export default function ConnectPage({ params }) {
   const [connections, setConnections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [animate, setAnimate] = useState(false);
-
   const [userId, setUserId] = useState(null);
   const [token, setToken] = useState(null);
+  const router = useRouter();
 
   useEffect(() => {
     setAnimate(true);
   }, []);
 
-  // ✅ Load and persist user/token properly for independent access later
+  // 1. Initialize User & Token
   useEffect(() => {
     if (typeof window === "undefined") return;
-
     const storedUserJson = localStorage.getItem("user");
     const storedToken = localStorage.getItem("token");
 
@@ -33,17 +33,6 @@ export default function ConnectPage({ params }) {
         const idFromStorage = userObj && (userObj._id || userObj.id || null);
         setUserId(idFromStorage);
         setToken(storedToken || null);
-
-        // Keep a compact copy for other flows that might rely on it
-        localStorage.setItem(
-          "skillmatch_user",
-          JSON.stringify({
-            _id: idFromStorage,
-            name: userObj.name,
-            email: userObj.email,
-            profilePhoto: userObj.profilePhoto,
-          })
-        );
       } catch (e) {
         console.error("Failed to parse stored user:", e);
       }
@@ -52,7 +41,7 @@ export default function ConnectPage({ params }) {
     }
   }, [params]);
 
-  // ✅ Fetch connections after we have user + token
+  // 2. Fetch Data
   useEffect(() => {
     if (!userId || !token) return;
 
@@ -101,7 +90,7 @@ export default function ConnectPage({ params }) {
     fetchConnections();
   }, [userId, token]);
 
-  // ✅ Safe reusable action handler
+  // 3. Action Handler
   const handleAction = async (action, requestId) => {
     if (!userId || !token) return toast.error("Not authenticated");
 
@@ -123,35 +112,15 @@ export default function ConnectPage({ params }) {
 
       toast.success(data.message || "Action successful");
 
-      // Refetch latest lists
+      // Refetch
       const refetch = await fetch(`/api/connect/${userId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const fresh = await refetch.json();
       if (refetch.ok) {
-        setReceivedRequests(
-          (fresh.received || []).map((r) => ({
-            _id: r.requestId,
-            from: r.from,
-            status: r.status,
-            createdAt: r.createdAt,
-          }))
-        );
-        setSentRequests(
-          (fresh.sent || []).map((r) => ({
-            _id: r.requestId,
-            to: r.to,
-            status: r.status,
-            createdAt: r.createdAt,
-          }))
-        );
-        setConnections(
-          (fresh.connections || []).map((c) => ({
-            connectDocId: c.connectDocId,
-            user: c.user,
-            connectedAt: c.connectedAt,
-          }))
-        );
+        setReceivedRequests(fresh.received || []);
+        setSentRequests(fresh.sent || []);
+        setConnections(fresh.connections || []);
       }
     } catch (err) {
       console.error(err);
@@ -160,92 +129,94 @@ export default function ConnectPage({ params }) {
   };
 
   const renderCard = (req, type) => {
-    const user =
-      type === "received"
-        ? req.from
-        : type === "sent"
-        ? req.to
-        : req.user;
+    // Determine the user object to display
+    let displayUser = null;
+    let title = "";
 
-    if (!user) {
-      return (
-        <div
-          key={req._id || req.connectDocId}
-          className="bg-[#1d365e] rounded-2xl p-4 border border-white/20 shadow-md"
-        >
-          <p className="text-sm text-white/70">
-            User data missing for this connection.
-          </p>
-        </div>
-      );
+    if (type === "received") {
+      displayUser = req.from;
+      title = `${displayUser?.name} sent you a request`;
+    } else if (type === "sent") {
+      displayUser = req.to;
+      title = `Request to ${displayUser?.name}`;
+    } else {
+      displayUser = req.user;
+      title = displayUser?.name;
     }
 
-    const title =
-      type === "received"
-        ? `${user.name} sent you a request`
-        : type === "sent"
-        ? `Request to ${user.name}`
-        : user.name;
+    if (!displayUser) return null;
 
     return (
       <div
-        key={type === "connections" ? req.connectDocId : req._id}
-        className="bg-[#1d365e] border border-white/20 rounded-2xl p-5 flex items-center gap-5 hover:shadow-white/30 transition-shadow duration-200 shadow-md hover:scale-[1.03] transform"
-        tabIndex={0}
-        aria-label={`Profile card for ${user.name}`}
+        key={req._id || req.connectDocId}
+        className="group relative overflow-hidden rounded-3xl bg-white/5 border border-white/10 p-6 transition-all duration-300 hover:bg-white/10 hover:border-white/20 hover:-translate-y-1"
       >
-        <Image
-          src={user.profilePhoto || "/default-avatar.png"}
-          alt={user.name}
-          width={64}
-          height={64}
-          className="rounded-full border border-white shadow-sm object-cover"
-        />
-        <div className="flex-1 text-white">
-          <h2 className="text-lg font-semibold truncate">{title}</h2>
-          <p className="text-sm text-white/70 truncate">{(user.skills || []).join(", ")}</p>
-          <p className="text-xs text-white/50 mt-1">{user.email}</p>
+        {/* Hover Gradient */}
+        <div className="absolute inset-0 bg-gradient-to-br from-violet-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
 
-          {type === "received" && (
-            <div className="flex gap-4 mt-3">
-              <button
-                onClick={() => handleAction("accept", req._id)}
-                className="bg-white text-[#1d365e] px-4 py-1 rounded-md text-sm font-semibold hover:bg-white/90 transition"
-              >
-                Accept
-              </button>
-              <button
-                onClick={() => handleAction("decline", req._id)}
-                className="bg-red-600 px-4 py-1 rounded-md text-sm font-semibold hover:bg-red-700 transition"
-              >
-                Decline
-              </button>
-            </div>
-          )}
+        <div className="relative z-10 flex items-start gap-4">
+          <Image
+            src={displayUser.profilePhoto || "/default-avatar.png"}
+            alt={displayUser.name}
+            width={64}
+            height={64}
+            className="rounded-2xl object-cover border-2 border-white/10 shadow-lg"
+          />
 
-          {type === "sent" && (
-            <div className="flex flex-col mt-3">
-              <p className="text-yellow-400 font-medium text-sm">Pending...</p>
-              <button
-                onClick={() => handleAction("cancel", req._id)}
-                className="bg-red-600 mt-2 px-4 py-1 rounded-md text-sm font-semibold hover:bg-red-700 transition"
-              >
-                Cancel
-              </button>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-bold text-white truncate mb-1">{displayUser.name}</h3>
+            <p className="text-violet-300 text-xs font-medium uppercase tracking-wider mb-2">
+              {displayUser.role || "Developer"}
+            </p>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {(displayUser.skills || []).slice(0, 3).map((skill, i) => (
+                <span key={i} className="text-[10px] px-2 py-1 rounded-md bg-white/5 text-slate-300 border border-white/5">
+                  {skill}
+                </span>
+              ))}
             </div>
-          )}
 
-          {type === "connection" && (
-            <div className="flex gap-4 mt-3">
-              <button
-                onClick={() => handleAction("remove", req.connectDocId)}
-                className="bg-red-600 px-4 py-1 rounded-md text-sm font-semibold hover:bg-red-700 transition"
-              >
-                Remove
-              </button>
-              <ChatButton userId={user._id} userName={user.name} />
+            {/* Actions */}
+            <div className="flex gap-3">
+              {type === "received" && (
+                <>
+                  <button
+                    onClick={() => handleAction("accept", req._id)}
+                    className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-white py-2 rounded-xl text-sm font-bold transition-colors shadow-lg shadow-emerald-500/20"
+                  >
+                    Accept
+                  </button>
+                  <button
+                    onClick={() => handleAction("decline", req._id)}
+                    className="px-4 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-sm font-medium transition-colors"
+                  >
+                    Decline
+                  </button>
+                </>
+              )}
+
+              {type === "sent" && (
+                <button
+                  onClick={() => handleAction("cancel", req._id)}
+                  className="px-4 py-2 bg-white/5 hover:bg-red-500/20 text-slate-300 hover:text-red-300 rounded-xl text-sm font-medium transition-colors border border-white/5 hover:border-red-500/30"
+                >
+                  Cancel Request
+                </button>
+              )}
+
+              {type === "connection" && (
+                <>
+                  <ChatButton userId={displayUser._id} userName={displayUser.name} />
+                  <button
+                    onClick={() => handleAction("remove", req.connectDocId)}
+                    className="px-3 py-2 text-slate-500 hover:text-red-400 text-xs font-medium transition-colors"
+                  >
+                    Remove
+                  </button>
+                </>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
     );
@@ -253,128 +224,93 @@ export default function ConnectPage({ params }) {
 
   if (loading)
     return (
-      <div className="flex items-center justify-center min-h-screen bg-white">
-        <p className="animate-pulse text-[#1d365e] text-lg font-semibold">Loading your connections...</p>
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full font-semibold"></div>
       </div>
     );
 
   return (
-    <div className="min-h-screen bg-white pt-[6.5rem] pb-14 px-6 flex justify-center items-start">
-      {/* Decorative blurred blobs (keeps login-style feel) */}
-      <svg
-        aria-hidden="true"
-        className="absolute -z-10 top-6 left-6 w-[360px] h-[360px] opacity-10 blur-3xl"
-        viewBox="0 0 600 600"
-      >
-        <defs>
-          <radialGradient id="g1" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <circle cx="300" cy="300" r="300" fill="url(#g1)" />
-      </svg>
+    <div className="min-h-screen w-full bg-[#0a0a0a] text-white pt-24 pb-20 px-4 md:px-8 relative overflow-hidden selection:bg-emerald-500/30">
 
-      <svg
-        aria-hidden="true"
-        className="absolute -z-10 bottom-6 right-6 w-[360px] h-[360px] opacity-08 blur-3xl"
-        viewBox="0 0 600 600"
-      >
-        <defs>
-          <radialGradient id="g2" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <circle cx="300" cy="300" r="300" fill="url(#g2)" />
-      </svg>
+      {/* Background Aurora */}
+      <div className="fixed inset-0 z-0 animate-aurora opacity-20 mix-blend-screen pointer-events-none"></div>
 
-      {/* Bigger centered card to match other pages */}
-      <div
-        className={`max-w-5xl w-full bg-[#1d365e] rounded-3xl p-10 shadow-2xl border border-white/30 transition-all duration-400 ${animate ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
-        style={{ marginTop: "1.25rem" }}
-      >
-        <h1 className="text-3xl font-bold text-white text-center mb-6 tracking-wide select-text">
-          Your Connections
-        </h1>
+      <div className="max-w-6xl mx-auto relative z-10">
+
+        {/* Header */}
+        <div className={`mb-12 text-center transition-all duration-700 ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+          <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-4">
+            Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-green-500">Network.</span>
+          </h1>
+          <p className="text-slate-400 max-w-xl mx-auto">
+            Manage your requests and connections. Build your squad one connection at a time.
+          </p>
+        </div>
 
         {/* Tabs */}
-        <div className="flex justify-center gap-6 mb-8">
+        <div className={`flex flex-wrap justify-center gap-2 mb-12 transition-all duration-700 delay-100 ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
           {["received", "sent", "connections"].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-6 py-2 rounded-xl text-white text-sm font-semibold uppercase tracking-wide transition-all duration-200 ${
-                activeTab === tab
-                  ? "bg-white text-[#1d365e] shadow-lg scale-105"
-                  : "bg-[#17406b] hover:bg-[#162f4f]"
-              }`}
-              aria-pressed={activeTab === tab}
+              className={`px-8 py-3 rounded-full text-sm font-bold transition-all duration-300 border ${activeTab === tab
+                  ? "bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.3)]"
+                  : "bg-transparent text-slate-400 border-white/10 hover:border-white/30 hover:text-white"
+                }`}
             >
-              {tab === "received"
-                ? "Received Requests"
-                : tab === "sent"
-                ? "Sent Requests"
-                : "Connections"}
+              {tab === "received" ? "Received" : tab === "sent" ? "Sent" : "Connections"}
             </button>
           ))}
         </div>
 
-        {/* Requests List */}
-        <div className="grid sm:grid-cols-2 gap-6 overflow-y-auto" style={{ maxHeight: "620px" }}>
+        {/* Grid */}
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 transition-all duration-700 delay-200 ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
           {activeTab === "received" &&
             (receivedRequests.length > 0 ? (
               receivedRequests.map((req) => renderCard(req, "received"))
             ) : (
-              <p className="text-center text-white/70 col-span-2 select-text">No received requests</p>
+              <EmptyState message="No pending requests." />
             ))}
 
           {activeTab === "sent" &&
             (sentRequests.length > 0 ? (
               sentRequests.map((req) => renderCard(req, "sent"))
             ) : (
-              <p className="text-center text-white/70 col-span-2 select-text">No sent requests</p>
+              <EmptyState message="You haven't sent any requests." />
             ))}
 
           {activeTab === "connections" &&
             (connections.length > 0 ? (
               connections.map((conn) => renderCard(conn, "connection"))
             ) : (
-              <p className="text-center text-white/70 col-span-2 select-text">No connections yet</p>
+              <EmptyState message="No connections yet. Go search for people!" />
             ))}
         </div>
-      </div>
 
-      <style jsx>{`
-        .blur-3xl {
-          filter: blur(28px);
-        }
-        @media (min-width: 768px) {
-          div[style] {
-            margin-top: 1.5rem;
-          }
-        }
-        @media (max-width: 520px) {
-          .max-w-5xl { padding: 1rem; border-radius: 1rem; }
-        }
-      `}</style>
+      </div>
     </div>
   );
+}
+
+function EmptyState({ message }) {
+  return (
+    <div className="col-span-full py-20 flex flex-col items-center justify-center text-center opacity-50">
+      <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
+        <span className="text-2xl">👻</span>
+      </div>
+      <p className="text-slate-400 font-medium">{message}</p>
+    </div>
+  )
 }
 
 function ChatButton({ userId, userName }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  // Loading overlay + animation before open chat
   const handleChat = async () => {
     setLoading(true);
     try {
-      const token =
-        typeof window !== "undefined"
-          ? localStorage.getItem("token")
-          : null;
-
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
       const res = await fetch(`/api/chat/conversations`, {
         method: "POST",
         headers: {
@@ -386,27 +322,15 @@ function ChatButton({ userId, userName }) {
 
       const data = await res.json();
       if (!res.ok) {
-        console.error("Conversation create failed", data);
-        toast?.error?.(data?.error || "Failed to open chat");
+        toast.error(data?.error || "Failed to open chat");
         setLoading(false);
         return;
       }
 
-      const conv =
-        (data.conversation && data.conversation._id) ||
-        data.conversationId ||
-        (data.conversationId && data.conversationId._id);
+      const conv = (data.conversation && data.conversation._id) || data.conversationId;
+      if (conv) router.push(`/chat/${conv}`);
+      else setLoading(false);
 
-      if (conv) {
-        localStorage.setItem("last_conversation_id", conv);
-
-        // Small delay so user sees the loading animation before navigation
-        setTimeout(() => {
-          router.push(`/chat/${conv}`);
-        }, 600);
-      } else {
-        setLoading(false);
-      }
     } catch (e) {
       console.error(e);
       setLoading(false);
@@ -414,32 +338,12 @@ function ChatButton({ userId, userName }) {
   };
 
   return (
-    <>
-      <button
-        onClick={handleChat}
-        disabled={loading}
-        className="bg-white text-[#1d365e] px-4 py-1 rounded-md text-sm font-semibold hover:scale-105 transition-transform disabled:opacity-60"
-        aria-label={`Open chat with ${userName}`}
-      >
-        {loading ? "Opening..." : "Chat"}
-      </button>
-
-      {loading && (
-        // Fullscreen loading overlay to indicate chat opening (does not change existing flow)
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-        >
-          <div className="bg-white/5 p-6 rounded-2xl flex flex-col items-center gap-3 shadow-lg">
-            <svg className="animate-spin h-10 w-10 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-            </svg>
-            <p className="text-white font-medium">Opening chat with {userName}...</p>
-          </div>
-        </div>
-      )}
-    </>
+    <button
+      onClick={handleChat}
+      disabled={loading}
+      className="flex-1 bg-violet-600 hover:bg-violet-500 text-white py-2 rounded-xl text-sm font-bold transition-all shadow-lg shadow-violet-600/20 disabled:opacity-50"
+    >
+      {loading ? "..." : "Chat Connect"}
+    </button>
   );
 }

@@ -8,10 +8,10 @@ export default function LoginPage() {
   const router = useRouter();
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
-  const [animate, setAnimate] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setAnimate(true);
+    setMounted(true);
   }, []);
 
   const handleSubmit = async (e) => {
@@ -42,127 +42,105 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex items-start justify-center px-4 sm:px-6 lg:px-8 py-50 select-none relative overflow-hidden">
-      {/* Decorative blobs - hidden on very small screens */}
-      <svg
-        aria-hidden="true"
-        className="hidden sm:block absolute -top-36 -left-36 w-[420px] h-[420px] opacity-8 blur-3xl"
-        viewBox="0 0 600 600"
-      >
-        <defs>
-          <radialGradient id="bgBlob1" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <circle cx="300" cy="300" r="300" fill="url(#bgBlob1)" />
-      </svg>
+    <div className="min-h-screen w-full flex bg-[#0a0a0a] text-white relative overflow-hidden selection:bg-emerald-500/30">
 
-      <svg
-        aria-hidden="true"
-        className="hidden sm:block absolute -bottom-36 -right-36 w-[420px] h-[420px] opacity-6 blur-3xl"
-        viewBox="0 0 600 600"
-      >
-        <defs>
-          <radialGradient id="bgBlob2" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <circle cx="300" cy="300" r="300" fill="url(#bgBlob2)" />
-      </svg>
+      {/* Background Aurora */}
+      <div className="absolute inset-0 z-0 animate-aurora opacity-20 mix-blend-screen pointer-events-none"></div>
 
-      {/* Centered card — responsive sizing and spacing */}
-      <form
-        onSubmit={handleSubmit}
-        className={`
-          relative z-20 w-full
-          max-w-md
-          bg-[#1d365e] text-white
-          rounded-3xl
-          p-6 sm:p-8 md:p-10
-          shadow-2xl border border-white/20
-          flex flex-col gap-4
-          transition-all duration-700 ease-out
-          ${animate ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}
-        `}
-        style={{ marginTop: "3.5rem" }}
-      >
-        <div className="flex flex-col items-center gap-1">
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight select-none text-center">
-            Welcome Back
-          </h2>
-          <p className="text-white/70 text-sm text-center">Sign in to continue to your account</p>
+      {/* Floating Orbs */}
+      <div className={`absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-violet-600/20 rounded-full blur-[100px] transition-all duration-1000 ${mounted ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-20'}`}></div>
+      <div className={`absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-emerald-600/20 rounded-full blur-[100px] transition-all duration-1000 ${mounted ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-20'}`}></div>
+
+      <div className="w-full min-h-screen flex">
+
+        {/* Left Side: Visual (Desktop Only) */}
+        <div className="hidden lg:flex w-1/2 flex-col justify-center px-16 relative z-10 p-12">
+          <div className={`transition-all duration-700 delay-100 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+            <div className="inline-block px-4 py-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-300 text-sm font-medium mb-6">
+              Welcome Back
+            </div>
+            <h1 className="text-6xl font-black tracking-tight mb-6 leading-tight">
+              Log in to your <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400">
+                Headquarters.
+              </span>
+            </h1>
+            <p className="text-xl text-slate-400 max-w-md leading-relaxed">
+              Connect with your team, manage your projects, and ship faster.
+            </p>
+          </div>
+
+          {/* Decorative Grid on Left */}
+          <div className={`absolute bottom-0 left-0 w-full h-1/2 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 pointer-events-none`}></div>
         </div>
 
-        <div className="flex flex-col gap-2 mt-2">
-          <label className="text-sm text-white/80">Email</label>
-          <input
-            placeholder="Email"
-            type="email"
-            className="rounded-xl p-3 text-base bg-white/6 border border-white/12 placeholder-white/60 text-white focus:outline-none focus:ring-2 focus:ring-white/20 transition w-full"
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-            value={form.email}
-            required
-            autoComplete="email"
-          />
+        {/* Right Side: Form */}
+        <div className="w-full lg:w-1/2 flex items-center justify-center p-6 relative z-10">
+          <form
+            onSubmit={handleSubmit}
+            className={`
+              w-full max-w-md
+              bg-white/5 backdrop-blur-2xl
+              border border-white/10
+              rounded-3xl
+              p-8 sm:p-10
+              shadow-2xl
+              flex flex-col gap-6
+              transition-all duration-700 ease-out delay-200
+              ${mounted ? "opacity-100 scale-100" : "opacity-0 scale-95"}
+            `}
+          >
+            <div className="flex flex-col gap-1 lg:hidden text-center mb-2">
+              <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">Sign In</h2>
+              <p className="text-slate-400 text-sm">Welcome back to Skillmatch</p>
+            </div>
+
+            <div className="space-y-5">
+              <div className="space-y-2 group">
+                <label className="text-sm font-medium text-slate-300 ml-1 transition-colors group-focus-within:text-emerald-400">Email Address</label>
+                <input
+                  placeholder="name@example.com"
+                  type="email"
+                  className="w-full bg-[#0a0a0a]/50 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  value={form.email}
+                  required
+                  autoComplete="email"
+                />
+              </div>
+
+              <div className="space-y-2 group">
+                <label className="text-sm font-medium text-slate-300 ml-1 transition-colors group-focus-within:text-emerald-400">Password</label>
+                <input
+                  placeholder="••••••••"
+                  type="password"
+                  className="w-full bg-[#0a0a0a]/50 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  value={form.password}
+                  required
+                  minLength={6}
+                  autoComplete="current-password"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="mt-4 w-full py-4 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-bold text-lg rounded-xl shadow-lg hover:shadow-emerald-500/25 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
+            >
+              {loading ? "Authenticating..." : "Log In"}
+            </button>
+
+            <div className="text-center text-slate-500 text-sm mt-2">
+              Don't have an account?{" "}
+              <Link href="/auth/register" className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors">
+                Register here
+              </Link>
+            </div>
+          </form>
         </div>
-
-        <div className="flex flex-col gap-2">
-          <label className="text-sm text-white/80">Password</label>
-          <input
-            placeholder="Password"
-            type="password"
-            className="rounded-xl p-3 text-base bg-white/6 border border-white/12 placeholder-white/60 text-white focus:outline-none focus:ring-2 focus:ring-white/20 transition w-full"
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-            value={form.password}
-            required
-            minLength={6}
-            autoComplete="current-password"
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="mt-2 py-3 bg-white text-[#1d365e] rounded-2xl font-semibold text-base sm:text-lg shadow-md hover:scale-105 transition-transform disabled:opacity-60 w-full"
-        >
-          {loading ? "Logging in..." : "Log In"}
-        </button>
-
-        <div className="text-center text-white/75 mt-1 text-sm">
-          <span>Don't have an account? </span>
-          <Link href="/auth/register" className="text-white underline">
-            Register here
-          </Link>
-        </div>
-      </form>
-
-      <style jsx>{`
-        .blur-3xl {
-          filter: blur(28px);
-        }
-
-        /* Make sure the card doesn't hug the navbar on very small screens */
-        @media (max-width: 420px) {
-          form {
-            margin-top: 4.25rem !important;
-            padding: 1rem !important;
-            border-radius: 1rem !important;
-          }
-          h2 {
-            font-size: 1.125rem;
-          }
-        }
-
-        /* Slightly reduce the decorative blob impact on medium screens */
-        @media (min-width: 640px) and (max-width: 1024px) {
-          .blur-3xl {
-            filter: blur(20px);
-            opacity: 0.12;
-          }
-        }
-      `}</style>
+      </div>
     </div>
   );
 }

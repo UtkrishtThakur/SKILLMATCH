@@ -1,16 +1,18 @@
 'use client';
+
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function RegisterPage() {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [userTemp, setUserTemp] = useState(null);
-  const [animate, setAnimate] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
 
-  useEffect(() => setAnimate(true), []);
+  useEffect(() => setMounted(true), []);
 
   // Step 1: Register & send OTP
   async function handleSubmit(e) {
@@ -74,132 +76,128 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex items-start justify-center px-4 sm:px-6 lg:px-8 py-50 select-none relative overflow-hidden">
-      {/* Decorative subtle blobs (matches login page style) */}
-      <svg
-        aria-hidden="true"
-        className="hidden sm:block absolute -top-36 -left-36 w-[420px] h-[420px] opacity-8 blur-3xl"
-        viewBox="0 0 600 600"
-      >
-        <defs>
-          <radialGradient id="regBlob1" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <circle cx="300" cy="300" r="300" fill="url(#regBlob1)" />
-      </svg>
+    <div className="min-h-screen w-full flex bg-[#0a0a0a] text-white relative overflow-hidden selection:bg-emerald-500/30">
 
-      <svg
-        aria-hidden="true"
-        className="hidden sm:block absolute -bottom-36 -right-36 w-[420px] h-[420px] opacity-6 blur-3xl"
-        viewBox="0 0 600 600"
-      >
-        <defs>
-          <radialGradient id="regBlob2" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <circle cx="300" cy="300" r="300" fill="url(#regBlob2)" />
-      </svg>
+      {/* Background Aurora */}
+      <div className="absolute inset-0 z-0 animate-aurora opacity-20 mix-blend-screen pointer-events-none"></div>
 
-      {/* Centered card — UI changed to match login look, wiring unchanged */}
-      <form
-        onSubmit={otpSent ? handleVerify : handleSubmit}
-        className={`
-          relative z-20 w-full
-          max-w-md
-          bg-[#1d365e] text-white
-          rounded-3xl
-          p-6 sm:p-8 md:p-10
-          shadow-2xl border border-white/20
-          flex flex-col gap-4
-          transition-all duration-700 ease-out
-          ${animate ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}
-        `}
-        style={{ marginTop: "3.5rem" }} // slight push to avoid navbar
-      >
-        <div className="flex flex-col items-center gap-2">
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight select-none text-center">
-            {otpSent ? "Verify OTP" : "Create an Account"}
-          </h2>
-          <p className="text-white/75 text-sm text-center">
-            {otpSent ? "Enter the code we sent to your email" : "Sign up to get started"}
-          </p>
+      {/* Floating Orbs */}
+      <div className={`absolute top-[-20%] left-[20%] w-[600px] h-[600px] bg-purple-600/20 rounded-full blur-[120px] transition-all duration-1000 ${mounted ? 'opacity-100' : 'opacity-0'}`}></div>
+
+      <div className="w-full min-h-screen flex flex-row-reverse">
+
+        {/* Right Side: Visual (Desktop Only) - Reversed from Login */}
+        <div className="hidden lg:flex w-1/2 flex-col justify-center px-16 relative z-10 p-12 text-right">
+          <div className={`transition-all duration-700 delay-100 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+            <div className="inline-block px-4 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-sm font-medium mb-6">
+              Join the Community
+            </div>
+            <h1 className="text-6xl font-black tracking-tight mb-6 leading-tight">
+              Start building <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-l from-emerald-400 to-teal-400">
+                Your Legacy.
+              </span>
+            </h1>
+            <p className="text-xl text-slate-400 max-w-md ml-auto leading-relaxed">
+              Thousands of developers are waiting for a teammate like you.
+            </p>
+          </div>
+          {/* Decorative Grid on Right */}
+          <div className={`absolute bottom-0 right-0 w-full h-1/2 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 pointer-events-none`}></div>
         </div>
 
-        <div className="flex flex-col gap-3 mt-2 w-full">
-          {!otpSent ? (
-            <>
-              <input
-                placeholder="Name"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                required
-                className="rounded-xl p-3 text-base bg-white/6 border border-white/12 placeholder-white/60 text-white focus:outline-none focus:ring-2 focus:ring-white/20 transition w-full"
-              />
-              <input
-                placeholder="Email"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                required
-                className="rounded-xl p-3 text-base bg-white/6 border border-white/12 placeholder-white/60 text-white focus:outline-none focus:ring-2 focus:ring-white/20 transition w-full"
-              />
-              <input
-                placeholder="Password"
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                required
-                minLength={6}
-                autoComplete="new-password"
-                className="rounded-xl p-3 text-base bg-white/6 border border-white/12 placeholder-white/60 text-white focus:outline-none focus:ring-2 focus:ring-white/20 transition w-full"
-              />
-            </>
-          ) : (
-            <input
-              placeholder="Enter OTP"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              required
-              className="rounded-xl p-3 text-base bg-white/6 border border-white/12 placeholder-white/60 text-white focus:outline-none focus:ring-2 focus:ring-white/20 transition w-full"
-            />
-          )}
+        {/* Left Side: Form */}
+        <div className="w-full lg:w-1/2 flex items-center justify-center p-6 relative z-10">
+          <form
+            onSubmit={otpSent ? handleVerify : handleSubmit}
+            className={`
+              w-full max-w-md
+              bg-white/5 backdrop-blur-2xl
+              border border-white/10
+              rounded-3xl
+              p-8 sm:p-10
+              shadow-2xl
+              flex flex-col gap-5
+              transition-all duration-700 ease-out delay-200
+              ${mounted ? "opacity-100 scale-100" : "opacity-0 scale-95"}
+            `}
+          >
+            <div className="flex flex-col gap-1 lg:hidden text-center mb-2">
+              <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
+                {otpSent ? "Verify Account" : "Get Started"}
+              </h2>
+              <p className="text-slate-400 text-sm">Join Skillmatch today</p>
+            </div>
+
+            <div className="space-y-5">
+              {!otpSent ? (
+                <>
+                  <div className="space-y-2 group">
+                    <label className="text-sm font-medium text-slate-300 ml-1 transition-colors group-focus-within:text-emerald-400">Full Name</label>
+                    <input
+                      placeholder="John Doe"
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      required
+                      className="w-full bg-[#0a0a0a]/50 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2 group">
+                    <label className="text-sm font-medium text-slate-300 ml-1 transition-colors group-focus-within:text-emerald-400">Email Address</label>
+                    <input
+                      placeholder="name@example.com"
+                      type="email"
+                      value={form.email}
+                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                      required
+                      className="w-full bg-[#0a0a0a]/50 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2 group">
+                    <label className="text-sm font-medium text-slate-300 ml-1 transition-colors group-focus-within:text-emerald-400">Password</label>
+                    <input
+                      placeholder="Create a password"
+                      type="password"
+                      value={form.password}
+                      onChange={(e) => setForm({ ...form, password: e.target.value })}
+                      required
+                      minLength={6}
+                      autoComplete="new-password"
+                      className="w-full bg-[#0a0a0a]/50 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-2 group">
+                  <label className="text-sm font-medium text-slate-300 ml-1 transition-colors group-focus-within:text-emerald-400">Verification Code</label>
+                  <input
+                    placeholder="Enter 6-digit code"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    required
+                    className="w-full bg-[#0a0a0a]/50 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all text-center tracking-widest text-lg"
+                  />
+                  <p className="text-xs text-slate-500 ml-1">Check your email inbox for the code.</p>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              className="mt-4 w-full py-4 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-bold text-lg rounded-xl shadow-lg hover:shadow-emerald-500/25 hover:scale-[1.02] active:scale-[0.98] transition-all"
+            >
+              {otpSent ? "Verify & Enter" : "Create Account"}
+            </button>
+
+            <div className="text-center text-slate-500 text-sm mt-2">
+              Already have an account?{" "}
+              <Link href="/auth/login" className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors">
+                Log in
+              </Link>
+            </div>
+          </form>
         </div>
-
-        <button
-          type="submit"
-          className="mt-3 py-3 bg-white text-[#1d365e] rounded-2xl font-semibold text-base sm:text-lg shadow-md hover:scale-105 transition-transform w-full"
-        >
-          {otpSent ? "Verify OTP" : "Register"}
-        </button>
-
-        <div className="text-center text-white/75 text-sm mt-1">
-          <span>Already have an account? </span>
-          <a href="/auth/login" className="text-white underline">
-            Log in
-          </a>
-        </div>
-      </form>
-
-      <style jsx>{`
-        .blur-3xl {
-          filter: blur(28px);
-        }
-
-        @media (max-width: 420px) {
-          form {
-            margin-top: 4.25rem !important;
-            padding: 1rem !important;
-            border-radius: 1rem !important;
-          }
-          h2 {
-            font-size: 1.125rem;
-          }
-        }
-      `}</style>
+      </div>
     </div>
   );
 }

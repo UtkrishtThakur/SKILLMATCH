@@ -42,28 +42,29 @@ const Navbar = () => {
 
   return (
     <>
-      <nav className="fixed top-0 left-0 w-full bg-[#1d365e] rounded-b-3xl shadow-[0_10px_30px_rgba(29,54,94,0.5)] z-50 backdrop-filter backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between select-none">
+      <nav className="fixed top-6 left-1/2 -translate-x-1/2 w-[90%] max-w-5xl glass rounded-full z-50 transition-all duration-300">
+        <div className="px-6 py-3 flex items-center justify-between">
           {/* Brand */}
-          <h1 className="text-white text-3xl font-extrabold tracking-wide cursor-pointer bg-gradient-to-r from-white to-[#53ade0] bg-clip-text text-transparent select-text transition-transform duration-300 hover:scale-110">
-            <Link href="/">Skillmatch</Link>
-          </h1>
+          <Link href="/" className="text-2xl font-bold tracking-tight hover:scale-105 transition-transform duration-300">
+            <span className="text-gradient">Skillmatch</span>
+          </Link>
 
           {/* Desktop Menu */}
-          <div className="hidden md:flex items-center gap-6">
+          <div className="hidden md:flex items-center gap-4">
             {!user ? (
               <>
                 <Link
                   href="/auth/login"
-                  className="text-white px-5 py-2 rounded-xl font-medium hover:bg-white/20 transition-colors drop-shadow-md hover:drop-shadow-lg transform hover:scale-105 active:scale-95 transition-transform"
+                  className="text-slate-300 hover:text-white px-4 py-2 font-medium transition-colors"
                 >
                   Login
                 </Link>
                 <Link
                   href="/auth/register"
-                  className="bg-gradient-to-r from-white to-[#53ade0] px-6 py-2 rounded-xl text-[#1d365e] font-semibold shadow-lg hover:shadow-2xl hover:scale-110 active:scale-95 transition-transform"
+                  className="group relative px-6 py-2 bg-white text-black rounded-full font-bold overflow-hidden transition-transform hover:scale-105"
                 >
-                  Get Started
+                  <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-green-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <span className="relative z-10 group-hover:text-white transition-colors">Get Started</span>
                 </Link>
               </>
             ) : (
@@ -81,14 +82,15 @@ const Navbar = () => {
                     <Link
                       key={route.key}
                       href={route.path}
-                      className="bg-gradient-to-r from-white to-[#53ade0] px-6 py-2 rounded-xl text-[#1d365e] font-semibold shadow-lg hover:shadow-2xl hover:scale-110 active:scale-95 transition-transform"
+                      className="relative px-4 py-2 text-slate-300 hover:text-white transition-colors font-medium hover:bg-white/5 rounded-lg"
                     >
                       {route.label}
                     </Link>
                   ))}
+                <div className="h-6 w-[1px] bg-white/10 mx-2"></div>
                 <button
                   onClick={handleLogout}
-                  className="bg-pink-400 px-6 py-2 rounded-xl text-white font-semibold shadow-lg hover:shadow-2xl hover:scale-110 active:scale-95 transition-transform"
+                  className="text-slate-400 hover:text-rose-400 font-medium transition-colors px-2"
                 >
                   Log Out
                 </button>
@@ -100,98 +102,60 @@ const Navbar = () => {
           <button
             onClick={toggleMenu}
             aria-label="Toggle menu"
-            className="md:hidden flex flex-col gap-1.5 focus:outline-none focus:ring-2 focus:ring-white rounded"
+            className="md:hidden text-white focus:outline-none"
           >
-            <span
-              className={`block h-0.5 w-7 bg-white rounded origin-left transition-transform ${
-                menuOpen ? "rotate-45 translate-y-[9px]" : ""
-              }`}
-            />
-            <span
-              className={`block h-0.5 w-7 bg-white rounded transition-opacity ${
-                menuOpen ? "opacity-0" : "opacity-100"
-              }`}
-            />
-            <span
-              className={`block h-0.5 w-7 bg-white rounded origin-left transition-transform ${
-                menuOpen ? "-rotate-45 -translate-y-[9px]" : ""
-              }`}
-            />
+            <div className={`w-6 h-0.5 bg-white mb-1.5 transition-all ${menuOpen ? "rotate-45 translate-y-2" : ""}`} />
+            <div className={`w-6 h-0.5 bg-white mb-1.5 transition-all ${menuOpen ? "opacity-0" : ""}`} />
+            <div className={`w-6 h-0.5 bg-white transition-all ${menuOpen ? "-rotate-45 -translate-y-2" : ""}`} />
           </button>
         </div>
 
         {/* Mobile Dropdown */}
         <div
-          className={`md:hidden bg-[#1d365e] rounded-b-3xl overflow-hidden transition-max-height duration-500 ease-in-out ${
-            menuOpen ? "max-h-[500px] py-4" : "max-h-0 py-0"
-          }`}
+          className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out bg-[#0f172a]/90 backdrop-blur-xl rounded-2xl mt-2 mx-2 border border-white/10 ${menuOpen ? "max-h-[400px] opacity-100 mb-2" : "max-h-0 opacity-0"
+            }`}
         >
-          {!user ? (
-            <div className="flex flex-col gap-4 px-6">
-              <Link
-                href="/auth/login"
-                className="text-white px-5 py-3 rounded-xl font-medium hover:bg-white/20 transition-colors drop-shadow-md text-center hover:drop-shadow-lg transform hover:scale-105 active:scale-95 transition-transform"
-                onClick={() => setMenuOpen(false)}
-              >
-                Login
-              </Link>
-              <Link
-                href="/auth/register"
-                className="bg-gradient-to-r from-white to-[#53ade0] px-6 py-3 rounded-xl text-[#1d365e] font-semibold shadow-lg text-center hover:shadow-2xl hover:scale-110 active:scale-95 transition-transform"
-                onClick={() => setMenuOpen(false)}
-              >
-                Get Started
-              </Link>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-4 px-6">
-              {routes
-                .filter(
-                  (route) =>
-                    !pathname.startsWith(
-                      route.path.split("/")[1]
-                        ? `/${route.path.split("/")[1]}`
-                        : route.path
-                    )
-                )
-                .map((route) => (
+          <div className="flex flex-col gap-2 p-4">
+            {!user ? (
+              <>
+                <Link
+                  href="/auth/login"
+                  onClick={() => setMenuOpen(false)}
+                  className="text-center text-white/90 hover:bg-white/10 py-3 rounded-xl transition-colors"
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/auth/register"
+                  onClick={() => setMenuOpen(false)}
+                  className="text-center bg-gradient-to-r from-emerald-500 to-green-500 text-white py-3 rounded-xl font-bold"
+                >
+                  Get Started
+                </Link>
+              </>
+            ) : (
+              <>
+                {routes.map((route) => (
                   <Link
                     key={route.key}
                     href={route.path}
-                    className="bg-gradient-to-r from-white to-[#53ade0] px-6 py-3 rounded-xl text-[#1d365e] font-semibold shadow-lg text-center hover:shadow-2xl hover:scale-110 active:scale-95 transition-transform"
                     onClick={() => setMenuOpen(false)}
+                    className="text-center text-white/90 hover:bg-white/10 py-3 rounded-xl transition-colors"
                   >
                     {route.label}
                   </Link>
                 ))}
-              <button
-                onClick={handleLogout}
-                className="bg-pink-200 px-6 py-3 rounded-xl text-white font-semibold shadow-lg hover:shadow-2xl hover:scale-110 active:scale-95 transition-transform"
-              >
-                Log Out
-              </button>
-            </div>
-          )}
+                <button
+                  onClick={handleLogout}
+                  className="w-full bg-pink-500/20 text-pink-400 py-3 rounded-xl font-semibold hover:bg-pink-500/30 transition-colors"
+                >
+                  Log Out
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </nav>
-
-      <style jsx>{`
-        nav {
-          /* Removed border */
-          will-change: transform, box-shadow;
-          backdrop-filter: saturate(180%) blur(15px);
-        }
-        nav:hover {
-          box-shadow:
-            0 10px 20px rgba(0, 0, 0, 0.25),
-            0 20px 40px rgba(29, 54, 94, 0.55);
-          transform: translateY(-4px);
-          transition: box-shadow 0.3s ease, transform 0.3s ease;
-        }
-        div[aria-hidden] {
-          will-change: max-height;
-        }
-      `}</style>
     </>
   );
 };
