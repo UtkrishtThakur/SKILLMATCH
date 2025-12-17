@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useNotifications } from "@/context/NotificationContext";
 
 const Navbar = () => {
   const [user, setUser] = useState(null);
@@ -9,10 +10,17 @@ const Navbar = () => {
   const pathname = usePathname();
   const router = useRouter();
 
+  const { unreadConnects, unreadChats, clearConnectNotifications } = useNotifications();
+
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     const parsedUser = storedUser ? JSON.parse(storedUser) : null;
     setUser(parsedUser);
+
+    // Auto-clear connect notifications if we are already on the connect page
+    if (pathname.startsWith("/connect")) {
+      clearConnectNotifications();
+    }
 
     if (pathname.startsWith("/auth/login")) {
       localStorage.removeItem("token");
@@ -36,6 +44,7 @@ const Navbar = () => {
   const routes = [
     { key: "connect", path: user ? `/connect/${user._id}` : "/connect", label: "Connect" },
     { key: "search", path: user ? `/search/${user._id}` : "/search", label: "Search" },
+    { key: "requests", path: "/requests", label: "Requests" },
     { key: "profile", path: user ? `/profile/${user._id}` : "/profile", label: "Profile" },
     { key: "chat", path: `/chat`, label: "Chat" },
   ];
@@ -78,15 +87,27 @@ const Navbar = () => {
                           : route.path
                       )
                   )
-                  .map((route) => (
-                    <Link
-                      key={route.key}
-                      href={route.path}
-                      className="relative px-4 py-2 text-slate-300 hover:text-white transition-colors font-medium hover:bg-white/5 rounded-lg"
-                    >
-                      {route.label}
-                    </Link>
-                  ))}
+                  .map((route) => {
+                    let hasDot = false;
+                    if (route.key === "connect" && unreadConnects) hasDot = true;
+                    if (route.key === "chat" && unreadChats) hasDot = true;
+
+                    return (
+                      <Link
+                        key={route.key}
+                        href={route.path}
+                        onClick={() => {
+                          if (route.key === "connect") clearConnectNotifications();
+                        }}
+                        className="relative px-4 py-2 text-slate-300 hover:text-white transition-colors font-medium hover:bg-white/5 rounded-lg flex items-center gap-2"
+                      >
+                        {route.label}
+                        {hasDot && (
+                          <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]"></span>
+                        )}
+                      </Link>
+                    )
+                  })}
                 <div className="h-6 w-[1px] bg-white/10 mx-2"></div>
                 <button
                   onClick={handleLogout}
@@ -135,16 +156,28 @@ const Navbar = () => {
               </>
             ) : (
               <>
-                {routes.map((route) => (
-                  <Link
-                    key={route.key}
-                    href={route.path}
-                    onClick={() => setMenuOpen(false)}
-                    className="text-center text-white/90 hover:bg-white/10 py-3 rounded-xl transition-colors"
-                  >
-                    {route.label}
-                  </Link>
-                ))}
+                {routes.map((route) => {
+                  let hasDot = false;
+                  if (route.key === "connect" && unreadConnects) hasDot = true;
+                  if (route.key === "chat" && unreadChats) hasDot = true;
+
+                  return (
+                    <Link
+                      key={route.key}
+                      href={route.path}
+                      onClick={() => {
+                        setMenuOpen(false);
+                        if (route.key === "connect") clearConnectNotifications();
+                      }}
+                      className="text-center text-white/90 hover:bg-white/10 py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+                    >
+                      {route.label}
+                      {hasDot && (
+                        <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                      )}
+                    </Link>
+                  )
+                })}
                 <button
                   onClick={handleLogout}
                   className="w-full bg-pink-500/20 text-pink-400 py-3 rounded-xl font-semibold hover:bg-pink-500/30 transition-colors"

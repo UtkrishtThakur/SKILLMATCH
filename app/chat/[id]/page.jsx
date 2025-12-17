@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Pusher from "pusher-js";
 import { toast } from "react-hot-toast";
+import { useNotifications } from "@/context/NotificationContext";
 
 // Renovation Note:
 // We are replacing the simple ChatBox/MessageBubble components with inline styled
@@ -14,6 +15,8 @@ import { toast } from "react-hot-toast";
 export default function ChatWindowPage() {
   const params = useParams();
   const conversationId = params?.id;
+
+  const { setUnreadChats } = useNotifications(); // ⚡ Context hook
 
   const [messages, setMessages] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -117,6 +120,17 @@ export default function ChatWindowPage() {
           if (mounted) {
             setMessages((data.messages || []).map(m => ({ ...m })));
             setTimeout(() => scrollToBottom(false), 40);
+
+            // ⚡ Sync Notification State: Check if we still have unread messages elsewhere
+            // If not, clear the global red dot.
+            fetch("/api/notifications/unread", {
+              headers: { Authorization: `Bearer ${token}` }
+            })
+              .then(r => r.json())
+              .then(d => {
+                if (!d.unreadChats) setUnreadChats(false);
+              })
+              .catch(err => console.error("Sync error:", err));
           }
         } else {
           toast.error("Failed to load conversation");

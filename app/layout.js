@@ -3,6 +3,7 @@ import "./globals.css";
 import { Poppins } from "next/font/google";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { NotificationProvider } from "@/context/NotificationContext";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -31,9 +32,11 @@ export default function RootLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased `}
       >
-        <Navbar />
-        {children}
-        <Footer />
+        <NotificationProvider>
+          <Navbar />
+          {children}
+          <Footer />
+        </NotificationProvider>
       </body>
     </html>
   );

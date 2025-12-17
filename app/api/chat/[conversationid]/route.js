@@ -31,6 +31,12 @@ export async function GET(req, { params }) {
       return NextResponse.json({ message: "Unauthorized access to this chat" }, { status: 403 });
     }
 
+    // ⚡ Notification Logic: Mark messages as read by current user
+    await Chat.updateMany(
+      { conversationId, readBy: { $ne: tokenData.id } },
+      { $addToSet: { readBy: tokenData.id } }
+    );
+
     const raw = await Chat.find({ conversationId })
       .populate("senderId", "name email profilePhotoUrl") // use URL instead of base64
       .sort({ createdAt: 1 })
@@ -120,7 +126,19 @@ export async function POST(req, { params }) {
 
     // ⚡ Send only lightweight payload to Pusher
     try {
+      // 1. Live Chat Update
       await pusher.trigger(`chat-${conversationId}`, "new-message", normalized);
+
+      // 2. Notification Update for Receiver
+      const receiverId = conversation.participants.find(p => String(p) !== String(tokenData.id));
+      if (receiverId) {
+        await pusher.trigger(`user-${receiverId}`, "new-message", {
+          type: "chat",
+          conversationId,
+          senderId: tokenData.id,
+          messageId: normalized._id
+        });
+      }
     } catch (e) {
       console.error("Pusher trigger failed:", e);
     }

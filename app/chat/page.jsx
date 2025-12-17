@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "react-hot-toast";
+import Pusher from "pusher-js";
 
 export default function ChatPage() {
   const [conversations, setConversations] = useState([]);
@@ -90,6 +91,37 @@ export default function ChatPage() {
     return () => { mounted = false; };
   }, [token, currentUserId]);
 
+  // 3. Realtime Updates for Unread Dots
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY, {
+      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
+      encrypted: true
+    });
+
+    const channel = pusher.subscribe(`user-${currentUserId}`);
+
+    const handleNewMessage = (data) => {
+      // data = { type: 'chat', conversationId, senderId, messageId }
+      if (data.type === 'chat' && data.conversationId) {
+        setConversations(prev => prev.map(c => {
+          if (c._id === data.conversationId) {
+            return { ...c, hasUnread: true };
+          }
+          return c;
+        }));
+      }
+    };
+
+    channel.bind("new-message", handleNewMessage);
+
+    return () => {
+      channel.unbind("new-message", handleNewMessage);
+      pusher.unsubscribe(`user-${currentUserId}`);
+    };
+  }, [currentUserId]);
+
   const handleSelectConversation = (conversationId) => {
     router.push(`/chat/${conversationId}`);
   };
@@ -161,9 +193,14 @@ export default function ChatPage() {
                           {/* 2m ago */}
                         </span>
                       </div>
-                      <p className="text-slate-400 text-sm truncate group-hover:text-slate-300 transition-colors">
-                        {conv.lastMessage?.content || "No messages yet"}
-                      </p>
+                      <div className="flex justify-between items-center">
+                        <p className={`text-sm truncate transition-colors ${conv.hasUnread ? 'text-white font-semibold' : 'text-slate-400 group-hover:text-slate-300'}`}>
+                          {conv.lastMessage?.content || "No messages yet"}
+                        </p>
+                        {conv.hasUnread && (
+                          <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)] ml-2 shrink-0"></span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="text-slate-500 group-hover:text-white transition-colors">

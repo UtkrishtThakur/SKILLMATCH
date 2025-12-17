@@ -9,6 +9,17 @@ const ConnectionSchema = new mongoose.Schema(
       enum: ["pending", "accepted", "declined"],
       default: "pending",
     },
+    // Source tracking
+    source: {
+      type: String,
+      enum: ["profile", "request", "search"],
+      default: "profile",
+    },
+    requestId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Request",
+      default: null,
+    },
   },
   { timestamps: true }
 );

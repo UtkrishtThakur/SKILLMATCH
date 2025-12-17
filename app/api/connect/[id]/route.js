@@ -7,7 +7,7 @@ import mongoose from "mongoose";
 export async function GET(req, { params }) {
   try {
     await dbConnect();
-    const { id } = params;
+    const { id } = await params; // FIX: Await params
 
     if (!mongoose.Types.ObjectId.isValid(id))
       return NextResponse.json({ error: "Invalid user id" }, { status: 400 });
@@ -17,7 +17,7 @@ export async function GET(req, { params }) {
 
     if (decoded.id !== id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    // Received requests
+    // Received requests - REMOVED requestId populate
     const receivedDocs = await Connect.find({ receiverId: id, status: "pending" })
       .sort({ createdAt: -1 })
       .populate("senderId", "name email profilePhoto skills description _id")
@@ -30,9 +30,11 @@ export async function GET(req, { params }) {
         from: d.senderId,
         status: d.status,
         createdAt: d.createdAt,
+        source: d.source,
+        requestContext: d.requestId, // This is the ID, not populated
       }));
 
-    // Sent requests
+    // Sent requests - REMOVED requestId populate
     const sentDocs = await Connect.find({ senderId: id, status: "pending" })
       .sort({ createdAt: -1 })
       .populate("receiverId", "name email profilePhoto skills description _id")
@@ -45,6 +47,8 @@ export async function GET(req, { params }) {
         to: d.receiverId,
         status: d.status,
         createdAt: d.createdAt,
+        source: d.source,
+        requestContext: d.requestId, // This is the ID, not populated
       }));
 
     // Accepted connections
@@ -74,7 +78,7 @@ export async function GET(req, { params }) {
 export async function PUT(req, { params }) {
   try {
     await dbConnect();
-    const id = params.id;
+    const id = (await params).id; // FIX: Await params
 
     if (!mongoose.Types.ObjectId.isValid(id))
       return NextResponse.json({ error: "Invalid user id" }, { status: 400 });

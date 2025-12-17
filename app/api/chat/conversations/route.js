@@ -97,7 +97,22 @@ export async function GET(req) {
       .populate("lastMessage")
       .sort({ lastUpdated: -1 });
 
-    return NextResponse.json({ conversations }, { status: 200 });
+    // Add unread flag
+    const conversationsWithUnread = conversations.map(conv => {
+      const obj = conv.toObject();
+      if (!obj.lastMessage) {
+        obj.hasUnread = false;
+      } else {
+        // Unread if I am NOT the sender AND I haven't read it
+        const isMyMsg = String(obj.lastMessage.senderId) === String(userId);
+        const iHaveRead = obj.lastMessage.readBy && obj.lastMessage.readBy.some(id => String(id) === String(userId));
+
+        obj.hasUnread = !isMyMsg && !iHaveRead;
+      }
+      return obj;
+    });
+
+    return NextResponse.json({ conversations: conversationsWithUnread }, { status: 200 });
   } catch (err) {
     console.error("Conversation GET error:", err);
     return NextResponse.json({ message: "Server error", error: err.message }, { status: 500 });

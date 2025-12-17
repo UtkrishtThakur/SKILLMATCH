@@ -10,7 +10,7 @@ export async function POST(req) {
     const decoded = verifyToken(req);
     if (!decoded) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { receiverId } = await req.json();
+    const { receiverId, source, requestId } = await req.json();
     if (!receiverId) return NextResponse.json({ error: "Receiver ID required" }, { status: 400 });
     if (String(receiverId) === String(decoded.id))
       return NextResponse.json({ error: "Cannot send request to yourself." }, { status: 400 });
@@ -23,7 +23,27 @@ export async function POST(req) {
     });
     if (existing) return NextResponse.json({ error: "Request already exists." }, { status: 400 });
 
-    const newConn = await Connect.create({ senderId: decoded.id, receiverId, status: "pending" });
+    const newConn = await Connect.create({
+      senderId: decoded.id,
+      receiverId,
+      status: "pending",
+      source: source || "profile",
+      requestId: requestId || null,
+    });
+
+    // ⚡ Notification: Trigger Pusher event for the receiver
+    try {
+      const pusher = (await import("@/lib/pusher")).default;
+      await pusher.trigger(`user-${receiverId}`, "connect-request", {
+        type: "connect",
+        senderId: decoded.id,
+        connectId: newConn._id,
+        source: source || "profile",
+      });
+    } catch (pushErr) {
+      console.error("Pusher notification failed:", pushErr);
+    }
+
     return NextResponse.json({ message: "Request sent", connection: newConn }, { status: 200 });
   } catch (err) {
     console.error("Connect POST error:", err);
@@ -39,13 +59,15 @@ export async function GET(req) {
 
     const userId = decoded.id;
 
-    const received = await Connect.find({ receiverId: userId, status: "pending" })
+    const receivedDocs = await Connect.find({ receiverId: userId, status: "pending" })
       .populate("senderId", "name email profilePhoto skills description _id")
+      .populate("requestId", "skills description")
       .sort({ createdAt: -1 })
       .lean();
 
-    const sent = await Connect.find({ senderId: userId, status: "pending" })
+    const sentDocs = await Connect.find({ senderId: userId, status: "pending" })
       .populate("receiverId", "name email profilePhoto skills description _id")
+      .populate("requestId", "skills description")
       .sort({ createdAt: -1 })
       .lean();
 
@@ -53,6 +75,25 @@ export async function GET(req) {
       .populate("senderId receiverId", "name email profilePhoto skills description _id")
       .sort({ updatedAt: -1 })
       .lean();
+
+    // Transform to match frontend expectations
+    const received = receivedDocs.map(doc => ({
+      _id: doc._id,
+      from: doc.senderId,
+      status: doc.status,
+      createdAt: doc.createdAt,
+      source: doc.source,
+      requestContext: doc.requestId,
+    }));
+
+    const sent = sentDocs.map(doc => ({
+      _id: doc._id,
+      to: doc.receiverId,
+      status: doc.status,
+      createdAt: doc.createdAt,
+      source: doc.source,
+      requestContext: doc.requestId,
+    }));
 
     const connections = acceptedDocs
       .map(doc => {
