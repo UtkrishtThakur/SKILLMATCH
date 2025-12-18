@@ -188,11 +188,11 @@ export default function ChatBox({
       {/* Messages pane - this is the ONLY thing that scrolls */}
       <div
         ref={msgsRef}
-        className="w-full overflow-y-auto p-3 space-y-3 rounded-xl bg-transparent"
+        className="w-full overflow-y-auto p-3 space-y-3 rounded-xl bg-transparent scroll-smooth"
         style={{
-          // tweak this maxHeight to fit your layout. It keeps the pane from growing indefinitely.
-          // If you want it smaller, reduce 60vh -> 50vh etc.
-          maxHeight: "60vh",
+          maxHeight: "calc(100vh - 350px)",
+          minHeight: "300px",
+          willChange: "transform",
         }}
         aria-live="polite"
       >
@@ -204,9 +204,8 @@ export default function ChatBox({
             return (
               <div key={msg._id || msg.tempId} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                 <div
-                  className={`max-w-[75%] px-4 py-2 rounded-2xl break-words ${
-                    isMe ? "bg-white text-[#1d365e]" : "bg-white/10 text-white"
-                  } ${msg.failed ? "opacity-60" : ""}`}
+                  className={`max-w-[75%] px-4 py-2 rounded-2xl break-words ${isMe ? "bg-white text-[#1d365e]" : "bg-white/10 text-white"
+                    } ${msg.failed ? "opacity-60" : ""}`}
                 >
                   {msg.content}
                 </div>

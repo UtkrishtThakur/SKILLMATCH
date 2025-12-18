@@ -63,7 +63,7 @@ export default function Hero() {
           </div>
 
           {/* Title */}
-          <h1 className={`text-6xl sm:text-7xl md:text-9xl font-black tracking-tighter leading-[0.9] text-white mb-8 transition-all duration-700 delay-100 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+          <h1 className={`text-5xl sm:text-7xl md:text-9xl font-black tracking-tighter leading-[0.9] text-white mb-8 transition-all duration-700 delay-100 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             Find your <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-br from-violet-400 via-fuchsia-500 to-white animate-text-shimmer bg-[length:200%_auto]">
               Squad.

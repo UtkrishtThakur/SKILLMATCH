@@ -65,5 +65,18 @@ body {
     radial-gradient(at 50% 0%, hsla(260, 100%, 15%, 1) 0, transparent 50%),
     radial-gradient(at 100% 0%, hsla(140, 100%, 10%, 1) 0, transparent 50%);
   background-size: 200% 200%;
-  animation: aurora 15s ease infinite alternate;
+  animation: aurora 20s linear infinite alternate;
+  /* Slower, linear for smoothness */
+  will-change: background-position;
+}
+
+@media (max-width: 768px) {
+  .animate-aurora {
+    /* Simplify gradients for mobile to reduce GPU load */
+    background-image:
+      radial-gradient(at 50% 0%, hsla(260, 100%, 15%, 1) 0, transparent 70%);
+    background-size: 100% 100%;
+    animation: none;
+    /* Disable expensive animation on small screens */
+  }
 }

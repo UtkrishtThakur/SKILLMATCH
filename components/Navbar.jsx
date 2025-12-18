@@ -51,7 +51,7 @@ const Navbar = () => {
 
   return (
     <>
-      <nav className="fixed top-6 left-1/2 -translate-x-1/2 w-[90%] max-w-5xl glass rounded-full z-50 transition-all duration-300">
+      <nav className="fixed top-4 md:top-6 left-1/2 -translate-x-1/2 w-[95%] md:w-[90%] max-w-5xl glass rounded-full z-50 transition-all duration-300">
         <div className="px-6 py-3 flex items-center justify-between">
           {/* Brand */}
           <Link href="/" className="text-2xl font-bold tracking-tight hover:scale-105 transition-transform duration-300">

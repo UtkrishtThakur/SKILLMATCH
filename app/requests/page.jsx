@@ -154,18 +154,18 @@ export default function RequestsPage() {
             <div className="fixed inset-0 z-0 animate-aurora opacity-20 mix-blend-screen pointer-events-none"></div>
 
             <div className="max-w-6xl mx-auto relative z-10">
-                <div className="flex justify-between items-center mb-8">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-8">
                     <div>
-                        <h1 className="text-4xl font-black">
+                        <h1 className="text-3xl md:text-4xl font-black">
                             Opportunities <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400">Board</span>
                         </h1>
-                        <p className="text-slate-400 mt-2">
+                        <p className="text-slate-400 mt-2 text-sm md:text-base">
                             {loading ? "Loading..." : `Showing ${filteredRequests.length} new opportunities matching your skills`}
                         </p>
                     </div>
                     <button
                         onClick={() => router.push("/requests/create")}
-                        className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-xl font-bold hover:scale-105 transition-transform"
+                        className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-xl font-bold hover:scale-105 transition-transform text-center"
                     >
                         + Post Request
                     </button>
@@ -212,8 +212,8 @@ export default function RequestsPage() {
                                                 <span
                                                     key={i}
                                                     className={`px-3 py-1 rounded-full text-xs font-medium ${isMatch
-                                                            ? 'bg-emerald-500/30 text-emerald-300 ring-1 ring-emerald-500/50'
-                                                            : 'bg-violet-500/20 text-violet-300'
+                                                        ? 'bg-emerald-500/30 text-emerald-300 ring-1 ring-emerald-500/50'
+                                                        : 'bg-violet-500/20 text-violet-300'
                                                         }`}
                                                 >
                                                     {skill} {isMatch && '✓'}
@@ -238,8 +238,8 @@ export default function RequestsPage() {
                                         onClick={() => handleInterest(req._id)}
                                         disabled={hasExpressedInterest}
                                         className={`w-full py-2 rounded-xl font-bold transition-all ${hasExpressedInterest
-                                                ? 'bg-emerald-500/20 text-emerald-400 cursor-not-allowed border border-emerald-500/50'
-                                                : 'bg-white text-black hover:bg-slate-200'
+                                            ? 'bg-emerald-500/20 text-emerald-400 cursor-not-allowed border border-emerald-500/50'
+                                            : 'bg-white text-black hover:bg-slate-200'
                                             }`}
                                     >
                                         {hasExpressedInterest ? (

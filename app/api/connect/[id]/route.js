@@ -115,6 +115,18 @@ export async function PUT(req, { params }) {
         conversation = await Conversation.create({ participants: [senderId, receiverId] });
       }
 
+      // Trigger Pusher for the sender
+      try {
+        const pusher = (await import("@/lib/pusher")).default;
+        await pusher.trigger(`user-${senderId}`, "connect-accepted", {
+          type: "connect-accepted",
+          receiverId,
+          conversationId: String(conversation._id),
+        });
+      } catch (pushErr) {
+        console.error("Pusher acceptance notification failed:", pushErr);
+      }
+
       // return conversation id so frontend can navigate to chat
       return NextResponse.json({ message: "Request accepted", conversationId: String(conversation._id) }, { status: 200 });
     }

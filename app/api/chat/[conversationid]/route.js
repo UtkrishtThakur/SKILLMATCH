@@ -102,6 +102,7 @@ export async function POST(req, { params }) {
       conversationId,
       senderId: tokenData.id,
       content,
+      readBy: [tokenData.id],
     });
 
     conversation.lastMessage = message._id;

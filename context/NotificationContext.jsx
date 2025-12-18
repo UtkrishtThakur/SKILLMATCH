@@ -38,9 +38,24 @@ export function NotificationProvider({ children }) {
         }
     }, []);
 
-    // 2. Pusher Subscription
+    // 2. Pusher Subscription & Fallback Polling
     useEffect(() => {
         if (!userId) return;
+
+        const token = localStorage.getItem("token");
+
+        const fetchUnread = () => {
+            if (!token) return;
+            fetch("/api/notifications/unread", {
+                headers: { Authorization: `Bearer ${token}` }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.unreadConnects !== undefined) setUnreadConnects(data.unreadConnects);
+                    if (data.unreadChats !== undefined) setUnreadChats(data.unreadChats);
+                })
+                .catch(err => console.error("Notification polling error", err));
+        };
 
         const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY, {
             cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
@@ -56,23 +71,33 @@ export function NotificationProvider({ children }) {
 
         const handleChat = (data) => {
             console.log("Chat Notification:", data);
-            // Only trigger if we are NOT currently on that specific chat page?
-            // Actually, requirement says "Disappear when user views the relevant page".
-            // If user is ON the page, the page logic (GET) should mark as read.
-            // But the global dot might flicker on briefly.
-            // For now, simple logic: set true. If the user is on the chat page, 
-            // they will likely trigger a read event or a refresh will clear it.
-            // Better: We can check window.location? No, let's keep it simple as requested.
             setUnreadChats(true);
+        };
+
+        const handleAccept = (data) => {
+            console.log("Connect Accepted Notification:", data);
+            // Optionally do something more specific here, but at least refresh state
+            fetchUnread();
         };
 
         channel.bind("connect-request", handleConnect);
         channel.bind("new-message", handleChat);
+        channel.bind("connect-accepted", handleAccept);
+
+        // Fallback: Poll every 60 seconds
+        const pollInterval = setInterval(fetchUnread, 60000);
+
+        // Re-fetch on focus
+        const handleFocus = () => fetchUnread();
+        window.addEventListener("focus", handleFocus);
 
         return () => {
             channel.unbind("connect-request", handleConnect);
             channel.unbind("new-message", handleChat);
+            channel.unbind("connect-accepted", handleAccept);
             pusher.unsubscribe(`user-${userId}`);
+            clearInterval(pollInterval);
+            window.removeEventListener("focus", handleFocus);
         };
     }, [userId]);
 

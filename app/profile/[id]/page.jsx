@@ -178,19 +178,19 @@ export default function ProfilePage({ params }) {
             </div>
 
             {/* Info */}
-            <div className="flex-1 text-center md:text-left">
-              <h1 className="text-4xl font-black mb-2">{userData.name}</h1>
-              <p className="text-slate-400 text-lg mb-4">{userData.email}</p>
-              <div className="flex flex-wrap justify-center md:justify-start gap-3">
+            <div className="flex-1 text-center md:text-left min-w-0 w-full">
+              <h1 className="text-3xl md:text-4xl font-black mb-2 truncate">{userData.name}</h1>
+              <p className="text-slate-400 text-base md:text-lg mb-4 truncate">{userData.email}</p>
+              <div className="flex flex-col sm:flex-row flex-wrap justify-center md:justify-start gap-3">
                 <button
                   onClick={() => setEditing(!editing)}
-                  className="px-6 py-2 bg-white text-black font-bold rounded-xl hover:bg-slate-200 transition-colors"
+                  className="w-full sm:w-auto px-6 py-2 bg-white text-black font-bold rounded-xl hover:bg-slate-200 transition-colors"
                 >
                   {editing ? "Cancel Edit" : "Edit Profile"}
                 </button>
                 <button
                   onClick={() => setChangingPassword(!changingPassword)}
-                  className="px-6 py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-colors"
+                  className="w-full sm:w-auto px-6 py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-colors"
                 >
                   Security
                 </button>
@@ -200,7 +200,7 @@ export default function ProfilePage({ params }) {
                     localStorage.removeItem("user");
                     router.push("/");
                   }}
-                  className="px-6 py-2 bg-red-500/10 text-red-400 font-medium rounded-xl hover:bg-red-500/20 transition-colors border border-red-500/20"
+                  className="w-full sm:w-auto px-6 py-2 bg-red-500/10 text-red-400 font-medium rounded-xl hover:bg-red-500/20 transition-colors border border-red-500/20"
                 >
                   Logout
                 </button>
