@@ -46,8 +46,9 @@ export default function Hero() {
     <div className="relative min-h-screen w-full bg-[#0a0a0a] text-white overflow-x-hidden selection:bg-purple-500/30">
 
       {/* Dynamic Background */}
-      <div className="fixed inset-0 z-0 animate-aurora opacity-30 mix-blend-screen pointer-events-none"></div>
-      <div className="fixed inset-0 z-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none brightness-50 contrast-150"></div>
+      {/* Dynamic Background */}
+      <div className="fixed inset-0 z-0 animate-aurora opacity-20 pointer-events-none"></div>
+      <div className="fixed inset-0 z-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 pointer-events-none"></div>
 
       <main className="relative z-10 flex flex-col items-center pt-32 px-6">
 

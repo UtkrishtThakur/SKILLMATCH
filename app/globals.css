@@ -29,13 +29,14 @@ body {
 @layer utilities {
   .glass {
     background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(8px);
     border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   .glass-card {
-    background: rgba(29, 54, 94, 0.4);
-    backdrop-filter: blur(12px);
+    background: rgba(29, 54, 94, 0.6);
+    /* increased opacity to compensate for less blur */
+    backdrop-filter: blur(8px);
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
   }
@@ -45,6 +46,15 @@ body {
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+  }
+
+  @media (max-width: 768px) {
+
+    .glass,
+    .glass-card {
+      backdrop-filter: none;
+      background: rgba(20, 20, 25, 0.9);
+    }
   }
 }
 

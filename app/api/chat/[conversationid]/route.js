@@ -31,18 +31,30 @@ export async function GET(req, { params }) {
       return NextResponse.json({ message: "Unauthorized access to this chat" }, { status: 403 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const limit = parseInt(searchParams.get("limit") || "50");
+    const before = searchParams.get("before"); // ISO date string
+
+    const query = { conversationId };
+    if (before) {
+      query.createdAt = { $lt: new Date(before) };
+    }
+
     // ⚡ Notification Logic: Mark messages as read by current user
     await Chat.updateMany(
       { conversationId, readBy: { $ne: tokenData.id } },
       { $addToSet: { readBy: tokenData.id } }
     );
 
-    const raw = await Chat.find({ conversationId })
-      .populate("senderId", "name email profilePhotoUrl") // use URL instead of base64
-      .sort({ createdAt: 1 })
+    // Fetch latest messages first (descending)
+    const raw = await Chat.find(query)
+      .populate("senderId", "name email profilePhotoUrl")
+      .sort({ createdAt: -1 })
+      .limit(limit)
       .lean();
 
-    const messages = raw.map((m) => ({
+    // Reverse to return them in chronological order
+    const messages = raw.reverse().map((m) => ({
       _id: m._id,
       conversationId: String(m.conversationId),
       content: m.content,
@@ -52,7 +64,7 @@ export async function GET(req, { params }) {
           _id: m.senderId._id || m.senderId,
           name: m.senderId.name,
           email: m.senderId.email,
-          profilePhoto: m.senderId.profilePhotoUrl || null, // only URL
+          profilePhoto: m.senderId.profilePhotoUrl || null,
         }
         : null,
     }));

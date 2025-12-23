@@ -5,12 +5,7 @@ import { useParams } from "next/navigation";
 import Pusher from "pusher-js";
 import { toast } from "react-hot-toast";
 import { useNotifications } from "@/context/NotificationContext";
-
-// Renovation Note:
-// We are replacing the simple ChatBox/MessageBubble components with inline styled
-// elements to ensure total control over the "Purple/Glass" aesthetic without
-// breaking the prop drilling logic.
-// Logic for Pusher, Fetching, and Scroll is PRESERVED.
+import MessageBubble from "@/components/MessageBubble";
 
 export default function ChatWindowPage() {
   const params = useParams();
@@ -152,7 +147,13 @@ export default function ChatWindowPage() {
     if (!el) return;
 
     const oldest = messages[0];
-    const beforeId = oldest?._id;
+    const beforeId = oldest?._id; // We can use timestamp too if API supports it, but API uses createdAt < before (if date passed)
+    // Wait, my API change expects `before` as ISO DATE STRING
+    // "const before = searchParams.get("before"); // ISO date string ... query.createdAt = { $lt: new Date(before) };"
+    // The frontend code here sends `beforeId`?
+    // "const url = `/api/chat/${conversationId}${beforeId ? `?before=${encodeURIComponent(beforeId)}` : ''}`;"
+    // If I send an ID to `new Date(ID)`, it will be Invalid Date!
+    // I NEED TO FIX THIS IN FRONTEND TO SEND TIMESTAMP `oldest.createdAt`!
 
     fetchingOlderRef.current = true;
     setLoadingOlder(true);
@@ -162,7 +163,9 @@ export default function ChatWindowPage() {
       if (!token) return;
 
       const prevHeight = el.scrollHeight;
-      const url = `/api/chat/${conversationId}${beforeId ? `?before=${encodeURIComponent(beforeId)}` : ''}`;
+      // FIX: Use createdAt
+      const beforeDate = oldest?.createdAt;
+      const url = `/api/chat/${conversationId}${beforeDate ? `?before=${encodeURIComponent(beforeDate)}` : ''}`;
 
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
@@ -220,6 +223,7 @@ export default function ChatWindowPage() {
       content,
       sender: { _id: currentUserId }, // Mock sender for display
       createdAt: new Date().toISOString(),
+      optimistic: true // MessageBubble supports this
     };
     setMessages(prev => [...prev, optimisticMsg]);
     setTimeout(() => scrollToBottom(true), 60);
@@ -254,8 +258,8 @@ export default function ChatWindowPage() {
   return (
     <div className="min-h-screen w-full bg-[#0a0a0a] text-white pt-24 pb-8 px-4 md:px-8 relative overflow-hidden selection:bg-fuchsia-500/30 font-sans">
 
-      {/* Background */}
-      <div className="fixed inset-0 z-0 animate-aurora opacity-20 mix-blend-screen pointer-events-none"></div>
+      {/* Background (Optimized) */}
+      <div className="fixed inset-0 z-0 animate-aurora opacity-20 pointer-events-none"></div>
 
       <div className="max-w-5xl mx-auto relative z-10 h-[calc(100vh-8rem)] flex flex-col bg-[#111] border border-white/10 rounded-3xl overflow-hidden shadow-2xl backdrop-blur-md">
 
@@ -281,7 +285,7 @@ export default function ChatWindowPage() {
         {/* Messages Area */}
         <div
           ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 scrollbar-hide"
+          className="flex-1 overflow-y-auto p-4 md:p-6 space-y-2 scrollbar-hide"
         >
           {loadingOlder && (
             <div className="flex justify-center py-2">
@@ -300,28 +304,13 @@ export default function ChatWindowPage() {
               <p>Start the conversation!</p>
             </div>
           ) : (
-            messages.map((msg, idx) => {
-              const isMe = String(msg.sender?._id || msg.sender) === String(currentUserId);
-              // Check if chain
-              const prevMsg = messages[idx - 1];
-              const isChain = prevMsg && String(prevMsg.sender?._id || prevMsg.sender) === String(msg.sender?._id || msg.sender);
-
-              return (
-                <div key={msg._id || idx} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} ${isChain ? 'mt-1' : 'mt-4'}`}>
-                  <div className={`max-w-[75%] md:max-w-[60%] p-4 rounded-2xl text-sm leading-relaxed shadow-lg backdrop-blur-sm relative group
-                              ${isMe
-                      ? 'bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white rounded-br-none'
-                      : 'bg-white/10 border border-white/5 text-slate-200 rounded-bl-none'
-                    }`}
-                  >
-                    {msg.content}
-                    <div className={`text-[10px] mt-1 opacity-50 ${isMe ? 'text-violet-200' : 'text-slate-400'} text-right`}>
-                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  </div>
-                </div>
-              );
-            })
+            messages.map((msg, idx) => (
+              <MessageBubble
+                key={msg._id || idx}
+                message={msg}
+                currentUserId={currentUserId}
+              />
+            ))
           )}
         </div>
 
@@ -349,7 +338,7 @@ export default function ChatWindowPage() {
               {sending ? (
                 <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
               ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 7-7 7 7" /><path d="M12 19V5" /></svg> /* Using Up Arrow for send style */
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 7-7 7 7" /><path d="M12 19V5" /></svg>
               )}
             </button>
           </form>

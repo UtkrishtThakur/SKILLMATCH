@@ -1,20 +1,8 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback, useLayoutEffect } from "react";
 import { toast } from "react-hot-toast";
-
-/**
- * ChatBox
- * - Keeps your original send logic/UI intact.
- * - Adds an internal (or prop-driven) messages list area ABOVE the input.
- * - That messages area is the only thing that scrolls (overflow-y-auto).
- *
- * Props:
- * - conversationId, senderId, token (same as before)
- * - onMessageSent(msg) same as before (optimistic + server updates)
- * - messages (optional): if you already manage messages in a parent, pass them here;
- *   otherwise the component will render its internal messages array (optimistic messages).
- */
+import MessageBubble from "./MessageBubble";
 
 export default function ChatBox({
   conversationId,
@@ -26,6 +14,8 @@ export default function ChatBox({
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [token, setToken] = useState(propToken || null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
   // internal messages only used if parent doesn't pass messages
   const [internalMessages, setInternalMessages] = useState([]);
@@ -36,6 +26,8 @@ export default function ChatBox({
 
   // scrollable messages container ref
   const msgsRef = useRef(null);
+  // To track previous scroll height for maintaining position
+  const prevScrollHeightRef = useRef(0);
 
   // restore token if missing (original behaviour)
   useEffect(() => {
@@ -53,17 +45,97 @@ export default function ChatBox({
     ta.style.height = Math.min(ta.scrollHeight, 200) + "px";
   }, [message]);
 
-  // Auto-scroll to bottom when messages change.
-  // If parent passes messages, scroll on propMessages change; else internalMessages.
-  useEffect(() => {
-    const el = msgsRef.current;
-    if (!el) return;
-    // always scroll to bottom for simplicity (can add "if near bottom" later)
-    el.scrollTop = el.scrollHeight;
-  }, [propMessages, internalMessages]);
-
   // helper to get active messages array to render
   const activeMessages = propMessages || internalMessages;
+  const lastMessageRef = useRef(null);
+  const messagesLengthRef = useRef(activeMessages.length);
+
+  // Auto-scroll to bottom logic
+  useLayoutEffect(() => {
+    const el = msgsRef.current;
+    if (!el) return;
+
+    // Logic:
+    // 1. If we added messages at the BEGINNING (pagination), restore scroll position.
+    // 2. If we added messages at the END (new message), scroll to bottom.
+    // 3. Initial load -> scroll to bottom.
+
+    const newLength = activeMessages.length;
+    const oldLength = messagesLengthRef.current;
+    const addedCount = newLength - oldLength;
+
+    if (addedCount > 0 && loadingMore) {
+      // We loaded more messages at the top
+      // Restore scroll position
+      const newScrollHeight = el.scrollHeight;
+      const diff = newScrollHeight - prevScrollHeightRef.current;
+      el.scrollTop += diff;
+      setLoadingMore(false); // Reset flag
+    } else if (newLength > oldLength || newLength === 0) {
+      // Likely a new message sent or received or initial load
+      // Only scroll to bottom if we were already near bottom OR if it's the very first load
+      // For now, let's keep it simple: always scroll to bottom on new message
+      el.scrollTop = el.scrollHeight;
+    }
+
+    messagesLengthRef.current = newLength;
+    prevScrollHeightRef.current = el.scrollHeight;
+  }, [activeMessages, loadingMore]);
+
+
+  // Helper to fetch messages (for pagination)
+  const fetchMessages = useCallback(async (beforeDate = null) => {
+    if (!conversationId || !token) return;
+    try {
+      const url = `/api/chat/${conversationId}?limit=20${beforeDate ? `&before=${beforeDate}` : ''}`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        const fetched = data.messages || [];
+        if (fetched.length < 20) {
+          setHasMore(false);
+        }
+
+        if (beforeDate) {
+          // Prepend
+          setInternalMessages(prev => [...fetched, ...prev]);
+        } else {
+          // Initial load replacement if needed, but usually we handle internalMessages merging
+          // Actually if calling fetchMessages it implies we want to load into internal state
+          if (fetched.length > 0) {
+            setInternalMessages(prev => {
+              // prevent duplicates just in case
+              const existingIds = new Set(prev.map(m => m._id));
+              const uniqueFetched = fetched.filter(m => !existingIds.has(m._id));
+              return [...uniqueFetched, ...prev]; // actually fetching "before" usually prepends, but fetching "latest" implies replacing or merging?
+              // If we fetched "latest" (no beforeDate), we likely want to just set them or append if we assume we are at start.
+              // BUT, if parent is not managing messages, we should probably just set expected behavior.
+              // For simplicity: If no propMessages, we rely on internal.
+              // If invalidating, we set.
+              return fetched;
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch messages", err);
+    }
+  }, [conversationId, token]);
+
+  const handleScroll = () => {
+    const el = msgsRef.current;
+    if (!el) return;
+    if (el.scrollTop === 0 && hasMore && !loadingMore && activeMessages.length > 0) {
+      setLoadingMore(true);
+      prevScrollHeightRef.current = el.scrollHeight; // capture height before load
+      const oldest = activeMessages[0];
+      fetchMessages(oldest.createdAt);
+    }
+  };
+
 
   // when a message is sent / returned we merge it into internalMessages if parent not controlling
   const pushOrReplaceMessage = (msg) => {
@@ -119,7 +191,7 @@ export default function ChatBox({
       content: message,
       createdAt: new Date().toISOString(),
       sender: {
-        _id: senderId || storedUser?._id || storedUser?.id || null,
+        _id: senderId || storedUser?._id || storedUser?.id || null, // ensure ID is available
         name: storedUser?.name || null,
         profilePhoto: storedUser?.profilePhoto || null,
       },
@@ -182,12 +254,12 @@ export default function ChatBox({
     }
   };
 
-  // UI: the only big change is the addition of a scrollable messages pane (msgsRef)
   return (
     <div className="flex flex-col gap-2 w-full max-w-full">
       {/* Messages pane - this is the ONLY thing that scrolls */}
       <div
         ref={msgsRef}
+        onScroll={handleScroll}
         className="w-full overflow-y-auto p-3 space-y-3 rounded-xl bg-transparent scroll-smooth"
         style={{
           maxHeight: "calc(100vh - 350px)",
@@ -196,22 +268,18 @@ export default function ChatBox({
         }}
         aria-live="polite"
       >
+        {loadingMore && <div className="text-center text-xs text-white/40 py-2">Loading older messages...</div>}
+
         {activeMessages.length === 0 ? (
           <div className="text-white/40 text-center py-6">No messages yet</div>
         ) : (
-          activeMessages.map((msg) => {
-            const isMe = msg.sender?._id === senderId;
-            return (
-              <div key={msg._id || msg.tempId} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                <div
-                  className={`max-w-[75%] px-4 py-2 rounded-2xl break-words ${isMe ? "bg-white text-[#1d365e]" : "bg-white/10 text-white"
-                    } ${msg.failed ? "opacity-60" : ""}`}
-                >
-                  {msg.content}
-                </div>
-              </div>
-            );
-          })
+          activeMessages.map((msg) => (
+            <MessageBubble
+              key={msg._id || msg.tempId}
+              message={msg}
+              currentUserId={senderId}
+            />
+          ))
         )}
       </div>
 

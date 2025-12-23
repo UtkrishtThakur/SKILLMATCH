@@ -138,7 +138,7 @@ export default function ChatPage() {
     <div className="min-h-screen w-full bg-[#0a0a0a] text-white pt-24 pb-8 px-4 md:px-8 relative overflow-hidden selection:bg-fuchsia-500/30">
 
       {/* Background Aurora */}
-      <div className="fixed inset-0 z-0 animate-aurora opacity-20 mix-blend-screen pointer-events-none"></div>
+      <div className="fixed inset-0 z-0 animate-aurora opacity-20 pointer-events-none"></div>
 
       <div className={`max-w-4xl mx-auto relative z-10 transition-all duration-1000 ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-20'}`}>
 
