@@ -14,4 +14,8 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Indexes
+userSchema.index({ skills: 1 });
+userSchema.index({ name: "text" }); // Text index for name search if needed, or simple index
+
 export default mongoose.models.User || mongoose.model("User", userSchema);

@@ -10,7 +10,7 @@ export async function POST(req) {
     const decoded = verifyToken(req);
     if (!decoded) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { receiverId, source, requestId } = await req.json();
+    const { receiverId, source } = await req.json();
     if (!receiverId) return NextResponse.json({ error: "Receiver ID required" }, { status: 400 });
     if (String(receiverId) === String(decoded.id))
       return NextResponse.json({ error: "Cannot send request to yourself." }, { status: 400 });
@@ -28,7 +28,6 @@ export async function POST(req) {
       receiverId,
       status: "pending",
       source: source || "profile",
-      requestId: requestId || null,
     });
 
     // ⚡ Notification: Trigger Pusher event for the receiver
@@ -59,22 +58,20 @@ export async function GET(req) {
 
     const userId = decoded.id;
 
-    const receivedDocs = await Connect.find({ receiverId: userId, status: "pending" })
-      .populate("senderId", "name email profilePhoto skills description _id")
-      .populate("requestId", "skills description")
-      .sort({ createdAt: -1 })
-      .lean();
-
-    const sentDocs = await Connect.find({ senderId: userId, status: "pending" })
-      .populate("receiverId", "name email profilePhoto skills description _id")
-      .populate("requestId", "skills description")
-      .sort({ createdAt: -1 })
-      .lean();
-
-    const acceptedDocs = await Connect.find({ status: "accepted", $or: [{ senderId: userId }, { receiverId: userId }] })
-      .populate("senderId receiverId", "name email profilePhoto skills description _id")
-      .sort({ updatedAt: -1 })
-      .lean();
+    const [receivedDocs, sentDocs, acceptedDocs] = await Promise.all([
+      Connect.find({ receiverId: userId, status: "pending" })
+        .populate("senderId", "name email profilePhoto skills description _id")
+        .sort({ createdAt: -1 })
+        .lean(),
+      Connect.find({ senderId: userId, status: "pending" })
+        .populate("receiverId", "name email profilePhoto skills description _id")
+        .sort({ createdAt: -1 })
+        .lean(),
+      Connect.find({ status: "accepted", $or: [{ senderId: userId }, { receiverId: userId }] })
+        .populate("senderId receiverId", "name email profilePhoto skills description _id")
+        .sort({ updatedAt: -1 })
+        .lean(),
+    ]);
 
     // Transform to match frontend expectations
     const received = receivedDocs.map(doc => ({
@@ -83,7 +80,6 @@ export async function GET(req) {
       status: doc.status,
       createdAt: doc.createdAt,
       source: doc.source,
-      requestContext: doc.requestId,
     }));
 
     const sent = sentDocs.map(doc => ({
@@ -92,7 +88,6 @@ export async function GET(req) {
       status: doc.status,
       createdAt: doc.createdAt,
       source: doc.source,
-      requestContext: doc.requestId,
     }));
 
     const connections = acceptedDocs

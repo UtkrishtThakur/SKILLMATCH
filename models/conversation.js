@@ -48,6 +48,9 @@ conversationSchema.index(
   { unique: true, partialFilterExpression: { participants: { $size: 2 } } }
 );
 
+// Index for sorting by recently updated
+conversationSchema.index({ lastUpdated: -1 });
+
 // Auto-update `lastUpdated` when saving
 conversationSchema.pre("save", function (next) {
   this.lastUpdated = new Date();

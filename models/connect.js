@@ -12,16 +12,16 @@ const ConnectionSchema = new mongoose.Schema(
     // Source tracking
     source: {
       type: String,
-      enum: ["profile", "request", "search"],
+      enum: ["profile", "search"],
       default: "profile",
-    },
-    requestId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Request",
-      default: null,
     },
   },
   { timestamps: true }
 );
+
+// Indexes for faster lookups of pending requests and connections
+ConnectionSchema.index({ senderId: 1, status: 1 });
+ConnectionSchema.index({ receiverId: 1, status: 1 });
+ConnectionSchema.index({ status: 1 });
 
 export default mongoose.models.Connection || mongoose.model("Connection", ConnectionSchema);

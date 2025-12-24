@@ -44,8 +44,8 @@ const Navbar = () => {
   const routes = [
     { key: "connect", path: user ? `/connect/${user._id}` : "/connect", label: "Connect" },
     { key: "search", path: user ? `/search/${user._id}` : "/search", label: "Search" },
-    { key: "requests", path: "/requests", label: "Requests" },
     { key: "profile", path: user ? `/profile/${user._id}` : "/profile", label: "Profile" },
+    { key: "query", path: "/query", label: "Queries" },
     { key: "chat", path: `/chat`, label: "Chat" },
   ];
 

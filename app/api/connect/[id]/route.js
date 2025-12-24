@@ -31,7 +31,6 @@ export async function GET(req, { params }) {
         status: d.status,
         createdAt: d.createdAt,
         source: d.source,
-        requestContext: d.requestId, // This is the ID, not populated
       }));
 
     // Sent requests - REMOVED requestId populate
@@ -48,7 +47,6 @@ export async function GET(req, { params }) {
         status: d.status,
         createdAt: d.createdAt,
         source: d.source,
-        requestContext: d.requestId, // This is the ID, not populated
       }));
 
     // Accepted connections
