@@ -3,6 +3,7 @@ import dbConnect from "@/lib/dbconnect";
 import Query from "@/models/Query";
 import User from "@/models/User";
 import { verifyToken } from "@/utils/auth";
+import { sendQueryNotificationEmail } from "@/lib/email";
 
 export async function POST(req) {
     try {
@@ -22,6 +23,43 @@ export async function POST(req) {
             description,
             skills,
         });
+
+        // Send email notifications to users with matching skills
+        // Do this asynchronously to not block the response
+        (async () => {
+            try {
+                // Get the creator's name
+                const creator = await User.findById(decoded.id).select("name").lean();
+                const creatorName = creator?.name || "A user";
+
+                // Find users who have at least one matching skill and are verified
+                // Exclude the query creator from receiving the notification
+                const matchingUsers = await User.find({
+                    _id: { $ne: decoded.id }, // Exclude the creator
+                    skills: { $in: skills }, // At least one skill matches
+                    verified: true, // Only send to verified users
+                    email: { $exists: true, $ne: "" } // Must have a valid email
+                }).select("email name").lean();
+
+                // Send emails to all matching users
+                const emailPromises = matchingUsers.map(user =>
+                    sendQueryNotificationEmail(user.email, {
+                        queryId: newQuery._id.toString(),
+                        title,
+                        description,
+                        skills,
+                        creatorName
+                    }).catch(err => {
+                        console.error(`Failed to send email to ${user.email}:`, err);
+                    })
+                );
+
+                await Promise.all(emailPromises);
+                console.log(`📧 Sent ${matchingUsers.length} query notification emails`);
+            } catch (emailError) {
+                console.error("Error sending query notification emails:", emailError);
+            }
+        })();
 
         return NextResponse.json({ message: "Query posted successfully", query: newQuery }, { status: 201 });
     } catch (err) {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/dbconnect";
 import Connect from "@/models/connect";
 import { verifyToken } from "@/utils/auth";
-import mongoose from "mongoose";
+import mongoose from " mongoose";
 
 export async function POST(req) {
   try {
