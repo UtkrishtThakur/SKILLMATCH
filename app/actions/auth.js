@@ -5,7 +5,7 @@ import { securexFetch } from "@/lib/securexFetch";
 export async function loginAction(formData) {
     try {
         console.log("LOGGING IN VIA SECUREX");
-        // Pass the object directly. securexFetch will strictly stringify it.
+        // Pass the object directly. securexFetch will stringify it.
         const response = await securexFetch("auth/login", {
             method: "POST",
             body: formData,
@@ -22,6 +22,19 @@ export async function registerAction(formData) {
         const response = await securexFetch("auth/register", {
             method: "POST",
             body: formData,
+        });
+        return { success: true, data: response };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function verifyOtpAction(data) {
+    try {
+        // Verify OTP for registration
+        const response = await securexFetch("auth/verify", {
+            method: "POST",
+            body: data,
         });
         return { success: true, data: response };
     } catch (error) {

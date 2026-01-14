@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { registerAction, verifyOtpAction } from "@/app/actions/auth";
 
 export default function RegisterPage() {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
@@ -18,19 +19,14 @@ export default function RegisterPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
+      const res = await registerAction(form);
 
-      const data = await res.json();
-      if (res.ok) {
+      if (res.success) {
         alert("OTP sent to your email!");
         setOtpSent(true);
         setUserTemp({ email: form.email, name: form.name || "Anonymous" });
       } else {
-        alert(data.error || "Failed to send OTP");
+        alert(res.error || "Failed to send OTP");
       }
     } catch (err) {
       console.error("Register error:", err);
@@ -48,26 +44,18 @@ export default function RegisterPage() {
     }
 
     try {
-      const res = await fetch("/api/auth/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: userTemp.email,
-          code: otp,
-          name: userTemp.name,
-        }),
+      const res = await verifyOtpAction({
+        email: userTemp.email,
+        code: otp,
+        name: userTemp.name,
       });
 
-      const data = await res.json();
-
-      if (res.ok) {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
-
-        alert("Registered successfully! Redirecting to profile...");
-        router.push(`/profile/${data.user._id}`);
+      if (res.success) {
+        // Note: verify endpoint doesn't return token, user needs to login
+        alert("Registered successfully! Please log in.");
+        router.push("/auth/login");
       } else {
-        alert(data.error || "OTP verification failed");
+        alert(res.error || "OTP verification failed");
       }
     } catch (err) {
       console.error("OTP verify error:", err);
