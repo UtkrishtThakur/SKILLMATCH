@@ -1,7 +1,6 @@
 const { securexFetch } = require("../lib/securexFetch");
 
 // Mock environment variables for testing purposes
-// In a real run, these would need to be set or loaded from .env.local
 process.env.SECUREX_GATEWAY_URL = "https://mock-gateway.example.com";
 process.env.SECUREX_API_KEY = "mock-api-key";
 
@@ -12,7 +11,8 @@ global.fetch = async (url, options) => {
     console.log(`  Method: ${options.method || 'GET'}`);
     console.log(`  Headers:`, options.headers);
     if (options.body) {
-        console.log(`  Body: ${options.body}`);
+        console.log(`  Body Type: ${typeof options.body}`);
+        console.log(`  Body Content: ${options.body}`);
     }
 
     if (!url.startsWith(process.env.SECUREX_GATEWAY_URL)) {
@@ -24,6 +24,12 @@ global.fetch = async (url, options) => {
         throw new Error("Missing or incorrect x-securex-api-key header");
     }
 
+    // Check Content-Type for POST
+    if (options.method === "POST" && headers["Content-Type"] !== "application/json") {
+        console.error("❌ Content-Type mismatch! Expected application/json");
+        throw new Error("Invalid Content-Type");
+    }
+
     return {
         ok: true,
         status: 200,
@@ -32,11 +38,12 @@ global.fetch = async (url, options) => {
 };
 
 async function testSecurexFetch() {
-    console.log("Testing securexFetch...");
+    console.log("Testing securexFetch with Object Body...");
     try {
+        // Pass object directly!
         const result = await securexFetch("test-endpoint", {
             method: "POST",
-            body: JSON.stringify({ foo: "bar" }),
+            body: { foo: "bar", nested: true },
         });
         console.log("\nResult:", result);
         console.log("\n✅ securexFetch verification passed!");

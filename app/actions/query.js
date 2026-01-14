@@ -22,7 +22,7 @@ export async function postQueryAction(data, token) {
             headers: {
                 Authorization: `Bearer ${token}`
             },
-            body: JSON.stringify(data),
+            body: data, // Pass object directly
         });
         return { success: true, data: response };
     } catch (error) {
