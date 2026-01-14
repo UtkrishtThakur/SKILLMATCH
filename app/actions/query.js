@@ -1,6 +1,6 @@
 'use server';
 
-import { securexFetch } from "@/lib/securexFetch";
+import { securexFetch } from "../../lib/securexFetch";
 
 export async function fetchQueriesAction(view, token) {
     try {

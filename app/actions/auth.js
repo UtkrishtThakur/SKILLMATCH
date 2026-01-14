@@ -1,6 +1,7 @@
 'use server';
 
-import { securexFetch } from "@/lib/securexFetch";
+import { securexFetch } from "../../lib/securexFetch";
+
 
 export async function loginAction(formData) {
     try {
