@@ -4,10 +4,11 @@ import { securexFetch } from "../../lib/securexFetch";
 
 export async function fetchQueriesAction(view, token) {
     try {
-        const response = await securexFetch(`query?view=${view}`, {
+        const response = await securexFetch("query", {
             headers: {
                 Authorization: `Bearer ${token}`
-            }
+            },
+            params: { view }
         });
         return { success: true, data: response };
     } catch (error) {
