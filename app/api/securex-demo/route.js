@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { securexFetch } from "../../lib/securexFetch";
+import { securexFetch } from "../../../lib/securexFetch";
 
 /**
  * Example Route Handler demonstrating use of SecureX helper.
