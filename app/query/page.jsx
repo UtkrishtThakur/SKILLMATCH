@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import QueryCard from "@/components/QueryCard";
+import { fetchQueriesAction, postQueryAction } from "@/app/actions/query";
 
 export default function QueryPage() {
     const [activeTab, setActiveTab] = useState("feed");
@@ -29,14 +30,12 @@ export default function QueryPage() {
             const token = localStorage.getItem("token");
             if (!token) return;
 
-            const res = await fetch(`/api/query?view=${activeTab}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const data = await res.json();
-            if (res.ok) {
-                setQueries(data.queries || []);
+            const res = await fetchQueriesAction(activeTab, token);
+
+            if (res.success) {
+                setQueries(res.data.queries || []);
             } else {
-                toast.error(data.error || "Failed to fetch queries");
+                toast.error(res.error || "Failed to fetch queries");
             }
         } catch (err) {
             console.error(err);
@@ -54,17 +53,9 @@ export default function QueryPage() {
 
         try {
             const token = localStorage.getItem("token");
-            const res = await fetch("/api/query", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ title, description, skills }),
-            });
+            const res = await postQueryAction({ title, description, skills }, token);
 
-            const data = await res.json();
-            if (res.ok) {
+            if (res.success) {
                 toast.success("Query posted!");
                 setShowModal(false);
                 setTitle("");
@@ -73,7 +64,7 @@ export default function QueryPage() {
                 if (activeTab === "my-queries") fetchQueries();
                 else setActiveTab("my-queries");
             } else {
-                toast.error(data.error || "Failed to post query");
+                toast.error(res.error || "Failed to post query");
             }
         } catch (err) {
             console.error(err);
@@ -113,8 +104,8 @@ export default function QueryPage() {
                             key={tab}
                             onClick={() => setActiveTab(tab)}
                             className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === tab
-                                    ? "bg-white/10 text-white"
-                                    : "text-slate-500 hover:text-slate-300"
+                                ? "bg-white/10 text-white"
+                                : "text-slate-500 hover:text-slate-300"
                                 }`}
                         >
                             {tab === "feed" ? "For You" : tab === "my-queries" ? "My Queries" : "My Solutions"}
