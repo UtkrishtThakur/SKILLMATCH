@@ -6,7 +6,7 @@ import Pusher from "pusher-js";
 import { toast } from "react-hot-toast";
 import { useNotifications } from "@/context/NotificationContext";
 import MessageBubble from "@/components/MessageBubble";
-import { apiClient } from "@/lib/apiClient";
+import { gatewayClient } from "@/lib/gatewayClient";
 
 export default function ChatWindowPage() {
   const params = useParams();
@@ -108,7 +108,7 @@ export default function ChatWindowPage() {
       try {
         const token = localStorage.getItem("token");
         if (!token) return;
-        const data = await apiClient(`/api/chat/${conversationId}`, {
+        const data = await gatewayClient(`/api/chat/${conversationId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (data && mounted) {
@@ -116,7 +116,7 @@ export default function ChatWindowPage() {
           setTimeout(() => scrollToBottom(false), 40);
 
           // ⚡ Sync Notification State
-          apiClient("/api/notifications/unread", {
+          gatewayClient("/api/notifications/unread", {
             headers: { Authorization: `Bearer ${token}` }
           })
             .then(d => {
@@ -153,7 +153,7 @@ export default function ChatWindowPage() {
       const prevHeight = el.scrollHeight;
       const beforeDate = oldest?.createdAt;
 
-      const data = await apiClient(`/api/chat/${conversationId}`, {
+      const data = await gatewayClient(`/api/chat/${conversationId}`, {
         params: { before: beforeDate },
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -218,7 +218,7 @@ export default function ChatWindowPage() {
 
     try {
       const token = localStorage.getItem("token");
-      const data = await apiClient(`/api/chat/${conversationId}`, {
+      const data = await gatewayClient(`/api/chat/${conversationId}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`

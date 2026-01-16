@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect } from "react";
 import Pusher from "pusher-js";
-import { apiClient } from "@/lib/apiClient";
+import { gatewayClient } from "@/lib/gatewayClient";
 
 const NotificationContext = createContext();
 
@@ -25,7 +25,7 @@ export function NotificationProvider({ children }) {
                 setUserId(parsed._id || parsed.id);
 
                 // Fetch initial counts
-                apiClient("/api/notifications/unread", {
+                gatewayClient("/api/notifications/unread", {
                     headers: { Authorization: `Bearer ${token}` }
                 })
                     .then(data => {
@@ -46,7 +46,7 @@ export function NotificationProvider({ children }) {
 
         const fetchUnread = () => {
             if (!token) return;
-            apiClient("/api/notifications/unread", {
+            gatewayClient("/api/notifications/unread", {
                 headers: { Authorization: `Bearer ${token}` }
             })
                 .then(data => {

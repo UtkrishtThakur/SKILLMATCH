@@ -6,7 +6,7 @@ import { formatDistanceToNow } from "date-fns";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { apiClient } from "@/lib/apiClient";
+import { gatewayClient } from "@/lib/gatewayClient";
 
 export default function QueryDetailPage({ params }) {
     const [query, setQuery] = useState(null);
@@ -56,7 +56,7 @@ export default function QueryDetailPage({ params }) {
             // I'll create `app/api/query/[id]/route.js` now as well, implicit requirement.
 
             const token = localStorage.getItem("token");
-            const data = await apiClient(`/api/query/${id}`, {
+            const data = await gatewayClient(`/api/query/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (data) {
@@ -78,7 +78,7 @@ export default function QueryDetailPage({ params }) {
 
         try {
             const token = localStorage.getItem("token");
-            const data = await apiClient(`/api/query/${id}/answer`, {
+            const data = await gatewayClient(`/api/query/${id}/answer`, {
                 method: "POST",
                 headers: {
                     "Authorization": `Bearer ${token}`
@@ -103,7 +103,7 @@ export default function QueryDetailPage({ params }) {
     const toggleLike = async (answerId) => {
         try {
             const token = localStorage.getItem("token");
-            const data = await apiClient(`/api/query/${id}/feedback`, {
+            const data = await gatewayClient(`/api/query/${id}/feedback`, {
                 method: "PUT",
                 headers: {
                     "Authorization": `Bearer ${token}`

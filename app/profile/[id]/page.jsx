@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { apiClient } from "@/lib/apiClient";
+import { gatewayClient } from "@/lib/gatewayClient";
 
 export default function ProfilePage({ params }) {
   const { id } = params;
@@ -41,7 +41,7 @@ export default function ProfilePage({ params }) {
         return;
       }
       try {
-        const data = await apiClient(`/api/user/${id}`, {
+        const data = await gatewayClient(`/api/user/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (data) {
@@ -77,7 +77,7 @@ export default function ProfilePage({ params }) {
     };
 
     try {
-      const data = await apiClient(`/api/user/${id}`, {
+      const data = await gatewayClient(`/api/user/${id}`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` },
         body: updateData,
@@ -104,7 +104,7 @@ export default function ProfilePage({ params }) {
 
     const token = localStorage.getItem("token");
     try {
-      const data = await apiClient(`/api/user/${id}/password`, {
+      const data = await gatewayClient(`/api/user/${id}/password`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` },
         body: passwordForm,

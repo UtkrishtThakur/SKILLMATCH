@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback, useLayoutEffect } from "react";
 import { toast } from "react-hot-toast";
 import MessageBubble from "./MessageBubble";
-import { apiClient } from "@/lib/apiClient";
+import { gatewayClient } from "@/lib/gatewayClient";
 
 export default function ChatBox({
   conversationId,
@@ -88,7 +88,7 @@ export default function ChatBox({
   const fetchMessages = useCallback(async (beforeDate = null) => {
     if (!conversationId || !token) return;
     try {
-      const data = await apiClient(`/api/chat/${conversationId}`, {
+      const data = await gatewayClient(`/api/chat/${conversationId}`, {
         params: { limit: 20, ...(beforeDate ? { before: beforeDate } : {}) },
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -205,7 +205,7 @@ export default function ChatBox({
     pushOrReplaceMessage(optimistic);
 
     try {
-      const data = await apiClient(`/api/chat/${conversationId}`, {
+      const data = await gatewayClient(`/api/chat/${conversationId}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${activeToken}`,

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { apiClient } from "@/lib/apiClient";
+import { gatewayClient } from "@/lib/gatewayClient";
 
 const topSearchesSample = [
   "React",
@@ -36,7 +36,7 @@ export default function SearchPage() {
         return;
       }
 
-      const data = await apiClient("/api/search", {
+      const data = await gatewayClient("/api/search", {
         params: { query: term },
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -59,7 +59,7 @@ export default function SearchPage() {
       const token = localStorage.getItem("token");
       if (!token) return alert("Please login first!");
 
-      const data = await apiClient("/api/connect", {
+      const data = await gatewayClient("/api/connect", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,

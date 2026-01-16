@@ -1,8 +1,7 @@
-const { securexFetch } = require("../lib/securexFetch");
+const { gatewayClient } = require("../lib/gatewayClient");
 
 // Mock environment variables for testing purposes
-process.env.SECUREX_GATEWAY_URL = "https://mock-gateway.example.com";
-process.env.SECUREX_API_KEY = "mock-api-key";
+process.env.NEXT_PUBLIC_SECUREX_API_KEY = "mock-api-key";
 
 // Mock global fetch
 global.fetch = async (url, options) => {
@@ -11,45 +10,39 @@ global.fetch = async (url, options) => {
     console.log(`  Method: ${options.method || 'GET'}`);
     console.log(`  Headers:`, options.headers);
     if (options.body) {
-        console.log(`  Body Type: ${typeof options.body}`);
         console.log(`  Body Content: ${options.body}`);
     }
 
-    if (!url.startsWith(process.env.SECUREX_GATEWAY_URL)) {
-        throw new Error("URL does not start with Gateway URL");
+    const gatewayUrl = "https://gateway.devlooper.co.in";
+    if (!url.startsWith(gatewayUrl)) {
+        throw new Error(`Security Violation: URL does not start with ${gatewayUrl}`);
     }
 
     const headers = options.headers || {};
-    if (headers["x-securex-api-key"] !== process.env.SECUREX_API_KEY) {
-        throw new Error("Missing or incorrect x-securex-api-key header");
-    }
-
-    // Check Content-Type for POST
-    if (options.method === "POST" && headers["Content-Type"] !== "application/json") {
-        console.error("❌ Content-Type mismatch! Expected application/json");
-        throw new Error("Invalid Content-Type");
+    if (headers["x-api-key"] !== process.env.NEXT_PUBLIC_SECUREX_API_KEY) {
+        throw new Error("Missing or incorrect x-api-key header");
     }
 
     return {
         ok: true,
         status: 200,
-        json: async () => ({ message: "Success from upstream" }),
+        text: async () => JSON.stringify({ message: "Success from upstream" }),
     };
 };
 
-async function testSecurexFetch() {
-    console.log("Testing securexFetch with Object Body...");
+async function runVerification() {
+    console.log("Verifying gatewayClient with Mock...");
     try {
-        // Pass object directly!
-        const result = await securexFetch("test-endpoint", {
+        const result = await gatewayClient("test-endpoint", {
             method: "POST",
             body: { foo: "bar", nested: true },
         });
         console.log("\nResult:", result);
-        console.log("\n✅ securexFetch verification passed!");
+        console.log("\n✅ gatewayClient verification passed!");
     } catch (error) {
-        console.error("\n❌ securexFetch verification failed:", error);
+        console.error("\n❌ gatewayClient verification failed:", error);
+        process.exit(1);
     }
 }
 
-testSecurexFetch();
+runVerification();

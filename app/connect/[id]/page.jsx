@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "react-hot-toast";
 import Link from "next/link";
-import { apiClient } from "@/lib/apiClient";
+import { gatewayClient } from "@/lib/gatewayClient";
 
 export default function ConnectPage({ params }) {
   const [activeTab, setActiveTab] = useState("received");
@@ -49,7 +49,7 @@ export default function ConnectPage({ params }) {
     const fetchConnections = async () => {
       setLoading(true);
       try {
-        const data = await apiClient(`/api/connect/${userId}`, {
+        const data = await gatewayClient(`/api/connect/${userId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (data) {
@@ -95,7 +95,7 @@ export default function ConnectPage({ params }) {
     if (!userId || !token) return toast.error("Not authenticated");
 
     try {
-      const data = await apiClient(`/api/connect/${userId}`, {
+      const data = await gatewayClient(`/api/connect/${userId}`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -107,7 +107,7 @@ export default function ConnectPage({ params }) {
         toast.success(data.message || "Action successful");
 
         // Refetch
-        const fresh = await apiClient(`/api/connect/${userId}`, {
+        const fresh = await gatewayClient(`/api/connect/${userId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (fresh) {
@@ -305,7 +305,7 @@ function ChatButton({ userId, userName }) {
     setLoading(true);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const data = await apiClient(`/api/chat/conversations`, {
+      const data = await gatewayClient(`/api/chat/conversations`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,

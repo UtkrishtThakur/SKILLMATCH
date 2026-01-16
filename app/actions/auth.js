@@ -1,13 +1,13 @@
 'use server';
 
-import { securexFetch } from "../../lib/securexFetch";
+import { gatewayClient } from "../../lib/gatewayClient";
 
 
 export async function loginAction(formData) {
     try {
         console.log("LOGGING IN VIA SECUREX");
-        // Pass the object directly. securexFetch will stringify it.
-        const response = await securexFetch("auth/login", {
+        // Pass the object directly. gatewayClient will stringify it.
+        const response = await gatewayClient("auth/login", {
             method: "POST",
             body: formData,
         });
@@ -20,7 +20,7 @@ export async function loginAction(formData) {
 export async function registerAction(formData) {
     try {
         // Pass the object directly.
-        const response = await securexFetch("auth/register", {
+        const response = await gatewayClient("auth/register", {
             method: "POST",
             body: formData,
         });
@@ -33,7 +33,7 @@ export async function registerAction(formData) {
 export async function verifyOtpAction(data) {
     try {
         // Verify OTP for registration
-        const response = await securexFetch("auth/verify", {
+        const response = await gatewayClient("auth/verify", {
             method: "POST",
             body: data,
         });

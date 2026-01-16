@@ -1,10 +1,10 @@
 'use server';
 
-import { securexFetch } from "../../lib/securexFetch";
+import { gatewayClient } from "../../lib/gatewayClient";
 
 export async function fetchQueriesAction(view, token) {
     try {
-        const response = await securexFetch("query", {
+        const response = await gatewayClient("query", {
             headers: {
                 Authorization: `Bearer ${token}`
             },
@@ -18,7 +18,7 @@ export async function fetchQueriesAction(view, token) {
 
 export async function postQueryAction(data, token) {
     try {
-        const response = await securexFetch("query", {
+        const response = await gatewayClient("query", {
             method: "POST",
             headers: {
                 Authorization: `Bearer ${token}`

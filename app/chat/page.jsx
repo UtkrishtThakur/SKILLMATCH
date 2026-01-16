@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "react-hot-toast";
 import Pusher from "pusher-js";
-import { apiClient } from "@/lib/apiClient";
+import { gatewayClient } from "@/lib/gatewayClient";
 
 export default function ChatPage() {
   const [conversations, setConversations] = useState([]);
@@ -61,7 +61,7 @@ export default function ChatPage() {
     let mounted = true;
     const fetchConversations = async () => {
       try {
-        const data = await apiClient("/api/chat/conversations", {
+        const data = await gatewayClient("/api/chat/conversations", {
           headers: {
             Authorization: `Bearer ${token}`,
           },

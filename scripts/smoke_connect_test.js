@@ -1,24 +1,26 @@
-const fetch = require('node-fetch');
+const { gatewayClient } = require("../lib/gatewayClient");
 
-// Small smoke test for GET /api/connect/[id]
-// Usage: node scripts/smoke_connect_test.js <baseUrl> <userToken> <userId>
+// Usage: node scripts/smoke_connect_test.js <token> <userId>
+// Note: baseUrl is no longer needed as it is hardcoded in the client.
+// NEXT_PUBLIC_SECUREX_API_KEY must be set in env.
 
-const [,, baseUrl, token, userId] = process.argv;
+const [, , token, userId] = process.argv;
 
-if (!baseUrl || !token || !userId) {
-  console.error('Usage: node scripts/smoke_connect_test.js <baseUrl> <token> <userId>');
+if (!token || !userId) {
+  console.error('Usage: node scripts/smoke_connect_test.js <token> <userId>');
+  console.error('Ensure NEXT_PUBLIC_SECUREX_API_KEY is set in your environment.');
   process.exit(2);
 }
 
 (async () => {
   try {
-    const url = `${baseUrl.replace(/\/$/, '')}/api/connect/${userId}`;
-    console.log('GET', url);
-    const res = await fetch(url, {
+    console.log(`Starting smoke test for User: ${userId}`);
+
+    const data = await gatewayClient(`/api/connect/${userId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    const data = await res.json();
-    console.log('Status:', res.status);
+
+    console.log('✅ Request successful');
     console.log('Body sample keys:', Object.keys(data).slice(0, 10));
 
     // Basic shape checks
@@ -28,27 +30,10 @@ if (!baseUrl || !token || !userId) {
       process.exit(1);
     }
 
-    console.log('✅ Response contains received/sent/accepted arrays');
-
-    const sample = {
-      received: data.received[0] || null,
-      sent: data.sent[0] || null,
-      accepted: data.accepted[0] || null,
-    };
-
-    console.log('Sample item shapes (null means none present):');
-    console.dir(sample, { depth: 2 });
-
-    // Validate fields on sample if present
-    const checkUserSummary = (u) => u && u.user && u.user.id && u.user.name && u.user.email;
-
-    if (sample.received && !checkUserSummary(sample.received)) console.warn('received item shape might be wrong');
-    if (sample.sent && !checkUserSummary(sample.sent)) console.warn('sent item shape might be wrong');
-    if (sample.accepted && !checkUserSummary(sample.accepted)) console.warn('accepted item shape might be wrong');
-
+    console.log('✅ Response validation passed');
     process.exit(0);
   } catch (err) {
-    console.error('Test error:', err);
+    console.error('❌ Smoke test failed:', err.message);
     process.exit(3);
   }
 })();

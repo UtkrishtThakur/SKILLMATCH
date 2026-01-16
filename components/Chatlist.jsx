@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import { toast } from "react-hot-toast";
 import Pusher from "pusher-js";
-import { apiClient } from "@/lib/apiClient";
+import { gatewayClient } from "@/lib/gatewayClient";
 
 export default function ChatList({ currentUserId, onSelectConversation }) {
   const [conversations, setConversations] = useState([]);
@@ -25,7 +25,7 @@ export default function ChatList({ currentUserId, onSelectConversation }) {
     if (!tokenRef.current) return;
     setLoading(true);
     try {
-      const data = await apiClient("/api/chat/conversations", {
+      const data = await gatewayClient("/api/chat/conversations", {
         headers: { Authorization: `Bearer ${tokenRef.current}` },
       });
       if (data) {

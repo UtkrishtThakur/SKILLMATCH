@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { securexFetch } from "../../../lib/securexFetch";
+import { gatewayClient } from "../../../lib/gatewayClient";
 
 /**
  * Example Route Handler demonstrating use of SecureX helper.
@@ -9,7 +9,7 @@ export async function GET(req) {
     try {
         // Example: Fetching some data from the secure gateway
         // In a real scenario, this might be a webhook handler or a proxy for a specific resource
-        const data = await securexFetch("health");
+        const data = await gatewayClient("health");
 
         return NextResponse.json({
             status: "ok",
