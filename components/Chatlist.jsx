@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import { toast } from "react-hot-toast";
 import Pusher from "pusher-js";
+import { apiClient } from "@/lib/apiClient";
 
 export default function ChatList({ currentUserId, onSelectConversation }) {
   const [conversations, setConversations] = useState([]);
@@ -24,11 +25,10 @@ export default function ChatList({ currentUserId, onSelectConversation }) {
     if (!tokenRef.current) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/chat/conversations", {
+      const data = await apiClient("/api/chat/conversations", {
         headers: { Authorization: `Bearer ${tokenRef.current}` },
       });
-      const data = await res.json();
-      if (res.ok) {
+      if (data) {
         // stable ordering, map to consistent shape
         setConversations((prev) => {
           const incoming = (data.conversations || []).map((c) => ({ ...c }));

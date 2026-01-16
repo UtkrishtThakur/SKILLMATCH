@@ -6,6 +6,7 @@ import Pusher from "pusher-js";
 import { toast } from "react-hot-toast";
 import { useNotifications } from "@/context/NotificationContext";
 import MessageBubble from "@/components/MessageBubble";
+import { apiClient } from "@/lib/apiClient";
 
 export default function ChatWindowPage() {
   const params = useParams();
@@ -106,28 +107,23 @@ export default function ChatWindowPage() {
     (async () => {
       try {
         const token = localStorage.getItem("token");
-        if (!token) return; // Silent return or redirect
-        const res = await fetch(`/api/chat/${conversationId}`, {
+        if (!token) return;
+        const data = await apiClient(`/api/chat/${conversationId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        const data = await res.json();
-        if (res.ok) {
-          if (mounted) {
-            setMessages((data.messages || []).map(m => ({ ...m })));
-            setTimeout(() => scrollToBottom(false), 40);
+        if (data && mounted) {
+          setMessages((data.messages || []).map(m => ({ ...m })));
+          setTimeout(() => scrollToBottom(false), 40);
 
-            // ⚡ Sync Notification State: Check if we still have unread messages elsewhere
-            // If not, clear the global red dot.
-            fetch("/api/notifications/unread", {
-              headers: { Authorization: `Bearer ${token}` }
+          // ⚡ Sync Notification State
+          apiClient("/api/notifications/unread", {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+            .then(d => {
+              if (d && !d.unreadChats) setUnreadChats(false);
             })
-              .then(r => r.json())
-              .then(d => {
-                if (!d.unreadChats) setUnreadChats(false);
-              })
-              .catch(err => console.error("Sync error:", err));
-          }
-        } else {
+            .catch(err => console.error("Sync error:", err));
+        } else if (!data) {
           toast.error("Failed to load conversation");
         }
       } catch (err) {
@@ -138,7 +134,7 @@ export default function ChatWindowPage() {
       }
     })();
     return () => { mounted = false; };
-  }, [conversationId, scrollToBottom]);
+  }, [conversationId, scrollToBottom, setUnreadChats]);
 
   // --- LOGIC: FETCH OLDER ---
   const fetchOlderMessages = useCallback(async () => {
@@ -147,14 +143,6 @@ export default function ChatWindowPage() {
     if (!el) return;
 
     const oldest = messages[0];
-    const beforeId = oldest?._id; // We can use timestamp too if API supports it, but API uses createdAt < before (if date passed)
-    // Wait, my API change expects `before` as ISO DATE STRING
-    // "const before = searchParams.get("before"); // ISO date string ... query.createdAt = { $lt: new Date(before) };"
-    // The frontend code here sends `beforeId`?
-    // "const url = `/api/chat/${conversationId}${beforeId ? `?before=${encodeURIComponent(beforeId)}` : ''}`;"
-    // If I send an ID to `new Date(ID)`, it will be Invalid Date!
-    // I NEED TO FIX THIS IN FRONTEND TO SEND TIMESTAMP `oldest.createdAt`!
-
     fetchingOlderRef.current = true;
     setLoadingOlder(true);
 
@@ -163,14 +151,14 @@ export default function ChatWindowPage() {
       if (!token) return;
 
       const prevHeight = el.scrollHeight;
-      // FIX: Use createdAt
       const beforeDate = oldest?.createdAt;
-      const url = `/api/chat/${conversationId}${beforeDate ? `?before=${encodeURIComponent(beforeDate)}` : ''}`;
 
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json();
+      const data = await apiClient(`/api/chat/${conversationId}`, {
+        params: { before: beforeDate },
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
-      if (res.ok) {
+      if (data) {
         const older = data.messages || [];
         if (older.length === 0) setHasMoreOlder(false);
         else {
@@ -221,29 +209,27 @@ export default function ChatWindowPage() {
     const optimisticMsg = {
       _id: tempId,
       content,
-      sender: { _id: currentUserId }, // Mock sender for display
+      sender: { _id: currentUserId },
       createdAt: new Date().toISOString(),
-      optimistic: true // MessageBubble supports this
+      optimistic: true
     };
     setMessages(prev => [...prev, optimisticMsg]);
     setTimeout(() => scrollToBottom(true), 60);
 
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`/api/chat/${conversationId}`, {
+      const data = await apiClient(`/api/chat/${conversationId}`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ content })
+        body: { content }
       });
-      const data = await res.json();
 
-      if (res.ok) {
-        setMessages(prev => prev.map(m => m._id === tempId ? data.message : m));
+      if (data) {
+        setMessages(prev => prev.map(m => m._id === tempId ? (data.message || data.data) : m));
       } else {
-        toast.error(data.error || "Failed to send");
+        toast.error("Failed to send");
         setMessages(prev => prev.filter(m => m._id !== tempId));
       }
     } catch (err) {
@@ -257,13 +243,8 @@ export default function ChatWindowPage() {
 
   return (
     <div className="min-h-screen w-full bg-[#0a0a0a] text-white pt-24 pb-8 px-4 md:px-8 relative overflow-hidden selection:bg-fuchsia-500/30 font-sans">
-
-      {/* Background (Optimized) */}
       <div className="fixed inset-0 z-0 animate-aurora opacity-20 pointer-events-none"></div>
-
       <div className="max-w-5xl mx-auto relative z-10 h-[calc(100vh-8rem)] flex flex-col bg-[#111] border border-white/10 rounded-3xl overflow-hidden shadow-2xl backdrop-blur-md">
-
-        {/* Header */}
         <div className="p-4 border-b border-white/5 bg-white/5 backdrop-blur-md flex justify-between items-center z-20">
           <div>
             <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-violet-200 to-fuchsia-200">
@@ -281,8 +262,6 @@ export default function ChatWindowPage() {
             ✕
           </button>
         </div>
-
-        {/* Messages Area */}
         <div
           ref={messagesContainerRef}
           className="flex-1 overflow-y-auto p-4 md:p-6 space-y-2 scrollbar-hide"
@@ -292,7 +271,6 @@ export default function ChatWindowPage() {
               <span className="text-xs text-slate-500 animate-pulse">Loading history...</span>
             </div>
           )}
-
           {loadingMessages ? (
             <div className="h-full flex items-center justify-center text-slate-500">
               <div className="animate-spin w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full mr-3"></div>
@@ -313,8 +291,6 @@ export default function ChatWindowPage() {
             ))
           )}
         </div>
-
-        {/* Input Area */}
         <div className="p-4 border-t border-white/10 bg-[#0a0a0a]/50 backdrop-blur-xl z-20">
           <form onSubmit={handleSend} className="relative flex items-center gap-2">
             <div className="flex-1 relative">
@@ -329,7 +305,6 @@ export default function ChatWindowPage() {
                 <kbd className="px-2 py-0.5 rounded bg-white/5 text-slate-500 text-[10px] border border-white/5 font-mono">ENTER</kbd>
               </div>
             </div>
-
             <button
               type="submit"
               disabled={!newMessage.trim() || sending}
@@ -343,7 +318,6 @@ export default function ChatWindowPage() {
             </button>
           </form>
         </div>
-
       </div>
     </div>
   );

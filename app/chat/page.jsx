@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "react-hot-toast";
 import Pusher from "pusher-js";
+import { apiClient } from "@/lib/apiClient";
 
 export default function ChatPage() {
   const [conversations, setConversations] = useState([]);
@@ -60,22 +61,13 @@ export default function ChatPage() {
     let mounted = true;
     const fetchConversations = async () => {
       try {
-        const res = await fetch("/api/chat/conversations", {
+        const data = await apiClient("/api/chat/conversations", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
-        if (!res.ok) {
-          if (res.status === 401) {
-            // Token invalid
-            toast.error("Session expired. Please log in.");
-          }
-          throw new Error("Failed to fetch");
-        }
-
-        const data = await res.json();
-        if (mounted) {
+        if (data) {
           setConversations(data.conversations || []);
         }
       } catch (error) {

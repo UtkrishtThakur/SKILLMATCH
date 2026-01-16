@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import { apiClient } from "@/lib/apiClient";
 
 const topSearchesSample = [
   "React",
@@ -35,12 +36,12 @@ export default function SearchPage() {
         return;
       }
 
-      const res = await fetch(`/api/search?query=${encodeURIComponent(term)}`, {
+      const data = await apiClient("/api/search", {
+        params: { query: term },
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const data = await res.json();
-      if (res.ok) setResults(data.users || []);
+      if (data) setResults(data.users || []);
       else {
         alert(data.error || "Search failed");
         setResults([]);
@@ -58,17 +59,15 @@ export default function SearchPage() {
       const token = localStorage.getItem("token");
       if (!token) return alert("Please login first!");
 
-      const res = await fetch("/api/connect", {
+      const data = await apiClient("/api/connect", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ receiverId }),
+        body: { receiverId },
       });
 
-      const data = await res.json();
-      if (res.ok) {
+      if (data) {
         alert(`Connection request sent to ${name}!`);
       } else {
         alert(data.error || "Failed to send request");

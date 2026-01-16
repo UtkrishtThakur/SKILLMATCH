@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { apiClient } from "@/lib/apiClient";
 
 export default function ProfilePage({ params }) {
   const { id } = params;
@@ -40,11 +41,10 @@ export default function ProfilePage({ params }) {
         return;
       }
       try {
-        const res = await fetch(`/api/user/${id}`, {
+        const data = await apiClient(`/api/user/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const data = await res.json();
-        if (res.ok) {
+        if (data) {
           setUserData(data.user);
           setForm({ name: data.user.name, email: data.user.email });
           setSkills(data.user.skills?.join(", ") || "");
@@ -77,13 +77,12 @@ export default function ProfilePage({ params }) {
     };
 
     try {
-      const res = await fetch(`/api/user/${id}`, {
+      const data = await apiClient(`/api/user/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(updateData),
+        headers: { Authorization: `Bearer ${token}` },
+        body: updateData,
       });
-      const data = await res.json();
-      if (res.ok) {
+      if (data) {
         setUserData(data.user);
         localStorage.setItem("user", JSON.stringify(data.user));
         setEditing(false);
@@ -105,13 +104,12 @@ export default function ProfilePage({ params }) {
 
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch(`/api/user/${id}/password`, {
+      const data = await apiClient(`/api/user/${id}/password`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(passwordForm),
+        headers: { Authorization: `Bearer ${token}` },
+        body: passwordForm,
       });
-      const data = await res.json();
-      if (res.ok) {
+      if (data) {
         alert("Password changed!");
         setChangingPassword(false);
         setPasswordForm({ oldPassword: "", newPassword: "", confirmPassword: "" });

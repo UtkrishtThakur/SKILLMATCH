@@ -6,6 +6,7 @@ import { formatDistanceToNow } from "date-fns";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { apiClient } from "@/lib/apiClient";
 
 export default function QueryDetailPage({ params }) {
     const [query, setQuery] = useState(null);
@@ -55,11 +56,10 @@ export default function QueryDetailPage({ params }) {
             // I'll create `app/api/query/[id]/route.js` now as well, implicit requirement.
 
             const token = localStorage.getItem("token");
-            const res = await fetch(`/api/query/${id}`, {
+            const data = await apiClient(`/api/query/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            const data = await res.json();
-            if (res.ok) {
+            if (data) {
                 setQuery(data.query);
             } else {
                 toast.error(data.error || "Failed to load query");
@@ -78,16 +78,14 @@ export default function QueryDetailPage({ params }) {
 
         try {
             const token = localStorage.getItem("token");
-            const res = await fetch(`/api/query/${id}/answer`, {
+            const data = await apiClient(`/api/query/${id}/answer`, {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json",
                     "Authorization": `Bearer ${token}`
                 },
-                body: JSON.stringify({ content: answerContent })
+                body: { content: answerContent }
             });
-            const data = await res.json();
-            if (res.ok) {
+            if (data) {
                 toast.success("Answer submitted!");
                 setAnswerContent("");
                 fetchQuery(); // Refresh
@@ -105,16 +103,14 @@ export default function QueryDetailPage({ params }) {
     const toggleLike = async (answerId) => {
         try {
             const token = localStorage.getItem("token");
-            const res = await fetch(`/api/query/${id}/feedback`, {
+            const data = await apiClient(`/api/query/${id}/feedback`, {
                 method: "PUT",
                 headers: {
-                    "Content-Type": "application/json",
                     "Authorization": `Bearer ${token}`
                 },
-                body: JSON.stringify({ answerId })
+                body: { answerId }
             });
-            const data = await res.json();
-            if (res.ok) {
+            if (data) {
                 // Optimistic update
                 setQuery(prev => ({
                     ...prev,

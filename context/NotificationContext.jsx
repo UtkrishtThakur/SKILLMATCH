@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect } from "react";
 import Pusher from "pusher-js";
+import { apiClient } from "@/lib/apiClient";
 
 const NotificationContext = createContext();
 
@@ -24,10 +25,9 @@ export function NotificationProvider({ children }) {
                 setUserId(parsed._id || parsed.id);
 
                 // Fetch initial counts
-                fetch("/api/notifications/unread", {
+                apiClient("/api/notifications/unread", {
                     headers: { Authorization: `Bearer ${token}` }
                 })
-                    .then(res => res.json())
                     .then(data => {
                         if (data.unreadConnects) setUnreadConnects(true);
                         if (data.unreadChats) setUnreadChats(true);
@@ -46,10 +46,9 @@ export function NotificationProvider({ children }) {
 
         const fetchUnread = () => {
             if (!token) return;
-            fetch("/api/notifications/unread", {
+            apiClient("/api/notifications/unread", {
                 headers: { Authorization: `Bearer ${token}` }
             })
-                .then(res => res.json())
                 .then(data => {
                     if (data.unreadConnects !== undefined) setUnreadConnects(data.unreadConnects);
                     if (data.unreadChats !== undefined) setUnreadChats(data.unreadChats);

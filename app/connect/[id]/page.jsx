@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "react-hot-toast";
 import Link from "next/link";
+import { apiClient } from "@/lib/apiClient";
 
 export default function ConnectPage({ params }) {
   const [activeTab, setActiveTab] = useState("received");
@@ -48,11 +49,10 @@ export default function ConnectPage({ params }) {
     const fetchConnections = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/connect/${userId}`, {
+        const data = await apiClient(`/api/connect/${userId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const data = await res.json();
-        if (res.ok) {
+        if (data) {
           setReceivedRequests(
             (data.received || []).map((r) => ({
               _id: r.requestId,
@@ -95,32 +95,26 @@ export default function ConnectPage({ params }) {
     if (!userId || !token) return toast.error("Not authenticated");
 
     try {
-      const res = await fetch(`/api/connect/${userId}`, {
+      const data = await apiClient(`/api/connect/${userId}`, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ action, requestId }),
+        body: { action, requestId },
       });
-      const data = await res.json();
 
-      if (!res.ok) {
-        toast.error(data.error || "Action failed");
-        return;
-      }
+      if (data) {
+        toast.success(data.message || "Action successful");
 
-      toast.success(data.message || "Action successful");
-
-      // Refetch
-      const refetch = await fetch(`/api/connect/${userId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const fresh = await refetch.json();
-      if (refetch.ok) {
-        setReceivedRequests(fresh.received || []);
-        setSentRequests(fresh.sent || []);
-        setConnections(fresh.connections || []);
+        // Refetch
+        const fresh = await apiClient(`/api/connect/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (fresh) {
+          setReceivedRequests(fresh.received || []);
+          setSentRequests(fresh.sent || []);
+          setConnections(fresh.connections || []);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -254,8 +248,8 @@ export default function ConnectPage({ params }) {
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`px-8 py-3 rounded-full text-sm font-bold transition-all duration-300 border ${activeTab === tab
-                  ? "bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.3)]"
-                  : "bg-transparent text-slate-400 border-white/10 hover:border-white/30 hover:text-white"
+                ? "bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.3)]"
+                : "bg-transparent text-slate-400 border-white/10 hover:border-white/30 hover:text-white"
                 }`}
             >
               {tab === "received" ? "Received" : tab === "sent" ? "Sent" : "Connections"}
@@ -311,26 +305,19 @@ function ChatButton({ userId, userName }) {
     setLoading(true);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const res = await fetch(`/api/chat/conversations`, {
+      const data = await apiClient(`/api/chat/conversations`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ receiverId: userId }),
+        body: { receiverId: userId },
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data?.error || "Failed to open chat");
-        setLoading(false);
-        return;
+      if (data) {
+        const conv = (data.conversation && data.conversation._id) || data.conversationId;
+        if (conv) router.push(`/chat/${conv}`);
+        else setLoading(false);
       }
-
-      const conv = (data.conversation && data.conversation._id) || data.conversationId;
-      if (conv) router.push(`/chat/${conv}`);
-      else setLoading(false);
-
     } catch (e) {
       console.error(e);
       setLoading(false);

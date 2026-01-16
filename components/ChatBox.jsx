@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback, useLayoutEffect } from "react";
 import { toast } from "react-hot-toast";
 import MessageBubble from "./MessageBubble";
+import { apiClient } from "@/lib/apiClient";
 
 export default function ChatBox({
   conversationId,
@@ -87,13 +88,12 @@ export default function ChatBox({
   const fetchMessages = useCallback(async (beforeDate = null) => {
     if (!conversationId || !token) return;
     try {
-      const url = `/api/chat/${conversationId}?limit=20${beforeDate ? `&before=${beforeDate}` : ''}`;
-      const res = await fetch(url, {
+      const data = await apiClient(`/api/chat/${conversationId}`, {
+        params: { limit: 20, ...(beforeDate ? { before: beforeDate } : {}) },
         headers: { Authorization: `Bearer ${token}` }
       });
-      const data = await res.json();
 
-      if (res.ok) {
+      if (data) {
         const fetched = data.messages || [];
         if (fetched.length < 20) {
           setHasMore(false);
@@ -205,22 +205,15 @@ export default function ChatBox({
     pushOrReplaceMessage(optimistic);
 
     try {
-      const res = await fetch(`/api/chat/${conversationId}`, {
+      const data = await apiClient(`/api/chat/${conversationId}`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${activeToken}`,
         },
-        body: JSON.stringify({ content: message, tempId }),
+        body: { content: message, tempId },
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        toast.error(data.error || data.message || "Failed to send message");
-        // mark optimistic as failed
-        pushOrReplaceMessage({ _id: tempId, failed: true, tempId });
-      } else {
+      if (data) {
         // clear input
         setMessage("");
         optimisticIds.current.delete(tempId);
