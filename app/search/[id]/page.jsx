@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { gatewayClient } from "@/lib/gatewayClient";
+import { gatewayClient } from "@/lib/gateway_client";
 
 const topSearchesSample = [
   "React",

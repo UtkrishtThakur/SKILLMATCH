@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "react-hot-toast";
 import Link from "next/link";
-import { gatewayClient } from "@/lib/gatewayClient";
+import { gatewayClient } from "@/lib/gateway_client";
 
 export default function ConnectPage({ params }) {
   const [activeTab, setActiveTab] = useState("received");

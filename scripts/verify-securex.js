@@ -1,4 +1,4 @@
-const { gatewayClient } = require("../lib/gatewayClient");
+const { gatewayClient } = require("../lib/gateway_client");
 
 // Mock environment variables for testing purposes
 process.env.NEXT_PUBLIC_SECUREX_API_KEY = "mock-api-key";

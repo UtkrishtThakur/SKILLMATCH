@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { gatewayClient } from "@/lib/gatewayClient";
+import { gatewayClient } from "@/lib/gateway_client";
 
 export default function ProfilePage({ params }) {
   const { id } = params;

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { gatewayClient } from "../../../lib/gatewayClient";
+import { gatewayClient } from "../../../lib/gateway_client";
 
 /**
  * Example Route Handler demonstrating use of SecureX helper.

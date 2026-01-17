@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import { toast } from "react-hot-toast";
 import Pusher from "pusher-js";
-import { gatewayClient } from "@/lib/gatewayClient";
+import { gatewayClient } from "@/lib/gateway_client";
 
 export default function ChatList({ currentUserId, onSelectConversation }) {
   const [conversations, setConversations] = useState([]);

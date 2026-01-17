@@ -6,7 +6,7 @@ import Pusher from "pusher-js";
 import { toast } from "react-hot-toast";
 import { useNotifications } from "@/context/NotificationContext";
 import MessageBubble from "@/components/MessageBubble";
-import { gatewayClient } from "@/lib/gatewayClient";
+import { gatewayClient } from "@/lib/gateway_client";
 
 export default function ChatWindowPage() {
   const params = useParams();

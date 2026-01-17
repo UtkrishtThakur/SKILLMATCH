@@ -1,4 +1,4 @@
-const { gatewayClient } = require("../lib/gatewayClient");
+const { gatewayClient } = require("../lib/gateway_client");
 
 // Usage: node scripts/smoke_connect_test.js <token> <userId>
 // Note: baseUrl is no longer needed as it is hardcoded in the client.

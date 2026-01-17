@@ -1,6 +1,6 @@
 'use server';
 
-import { gatewayClient } from "../../lib/gatewayClient";
+import { gatewayClient } from "../../lib/gateway_client";
 
 export async function fetchQueriesAction(view, token) {
     try {

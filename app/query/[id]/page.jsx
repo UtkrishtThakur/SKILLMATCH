@@ -6,7 +6,7 @@ import { formatDistanceToNow } from "date-fns";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { gatewayClient } from "@/lib/gatewayClient";
+import { gatewayClient } from "@/lib/gateway_client";
 
 export default function QueryDetailPage({ params }) {
     const [query, setQuery] = useState(null);

@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback, useLayoutEffect } from "react";
 import { toast } from "react-hot-toast";
 import MessageBubble from "./MessageBubble";
-import { gatewayClient } from "@/lib/gatewayClient";
+import { gatewayClient } from "@/lib/gateway_client";
 
 export default function ChatBox({
   conversationId,
