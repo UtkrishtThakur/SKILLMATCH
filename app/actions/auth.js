@@ -6,10 +6,10 @@ import { gatewayClient } from "../../lib/gateway_client";
 export async function loginAction(formData) {
     try {
         console.log("LOGGING IN VIA SECUREX");
-        // Pass the object directly. gatewayClient will stringify it.
+        const data = Object.fromEntries(formData.entries());
         const response = await gatewayClient("auth/login", {
             method: "POST",
-            body: formData,
+            body: data,
         });
         return { success: true, data: response };
     } catch (error) {
@@ -19,10 +19,10 @@ export async function loginAction(formData) {
 
 export async function registerAction(formData) {
     try {
-        // Pass the object directly.
+        const data = Object.fromEntries(formData.entries());
         const response = await gatewayClient("auth/register", {
             method: "POST",
-            body: formData,
+            body: data,
         });
         return { success: true, data: response };
     } catch (error) {
