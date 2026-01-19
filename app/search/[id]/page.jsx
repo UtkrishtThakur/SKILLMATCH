@@ -2,6 +2,11 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import { toast } from "react-hot-toast";
+import {
+  searchUsersAction,
+  requestConnectionAction,
+} from "@/app/actions/actions";
 
 const topSearchesSample = [
   "React",
@@ -22,62 +27,60 @@ export default function SearchPage() {
 
   useEffect(() => setAnimate(true), []);
 
+  /* =========================
+     SEARCH (SERVER ACTION)
+  ========================= */
+
   const handleSearch = async (overrideQuery) => {
     const term = overrideQuery !== undefined ? overrideQuery : query;
-    if (!term.trim()) return alert("Please enter a search term!");
+    if (!term.trim()) {
+      toast.error("Please enter a search term!");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        alert("Please login first!");
-        setLoading(false);
-        return;
-      }
+      const res = await searchUsersAction(term);
 
-      const res = await fetch(`/api/search?query=${encodeURIComponent(term)}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const data = await res.json();
-      if (res.ok) setResults(data.users || []);
-      else {
-        alert(data.error || "Search failed");
+      if (!res.success) {
+        toast.error(res.error || "Search failed");
         setResults([]);
+      } else {
+        setResults(res.data.users || []);
       }
     } catch (err) {
       console.error("Search error:", err);
       setResults([]);
+      toast.error("Search error");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
+
+  /* =========================
+     CONNECT (SERVER ACTION)
+  ========================= */
 
   const handleConnect = async (receiverId, name) => {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) return alert("Please login first!");
+      const res = await requestConnectionAction(receiverId);
 
-      const res = await fetch("/api/connect", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ receiverId }),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        alert(`Connection request sent to ${name}!`);
-      } else {
-        alert(data.error || "Failed to send request");
+      if (!res.success) {
+        toast.error(res.error || "Failed to send request");
+        return;
       }
+
+      toast.success(`Connection request sent to ${name}!`);
     } catch (err) {
       console.error("Connect error:", err);
-      alert("Error sending request.");
+      toast.error("Error sending request");
     }
   };
+
+  /* =========================
+     UI BELOW — UNCHANGED
+  ========================= */
 
   return (
     <div className="min-h-screen w-full bg-[#0a0a0a] text-white pt-32 pb-20 px-4 md:px-8 relative overflow-hidden selection:bg-purple-500/30">
@@ -97,7 +100,7 @@ export default function SearchPage() {
           </p>
         </div>
 
-        {/* Search Bar Container */}
+        {/* Search Bar */}
         <div className={`w-full max-w-2xl relative mb-8 transition-all duration-700 delay-100 ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
           <div className="absolute inset-0 bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-2xl blur opacity-25 -z-10"></div>
           <div className="relative flex items-center bg-[#111] border border-white/10 rounded-2xl p-2 shadow-2xl">
@@ -135,7 +138,7 @@ export default function SearchPage() {
           ))}
         </div>
 
-        {/* Results Grid */}
+        {/* Results */}
         <div className={`w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 transition-all duration-700 delay-300 ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
           {results.length > 0 ? (
             results.map((user) => (
@@ -155,14 +158,19 @@ export default function SearchPage() {
                       className="rounded-full object-cover border border-white/20"
                     />
                     <div>
-                      <h3 className="text-lg font-bold text-white leading-tight">{user.name}</h3>
-                      <p className="text-slate-500 text-xs mt-0.5 capitalize">{user.role || "Member"}</p>
+                      <h3 className="text-lg font-bold text-white">{user.name}</h3>
+                      <p className="text-slate-500 text-xs capitalize">
+                        {user.role || "Member"}
+                      </p>
                     </div>
                   </div>
 
                   <div className="flex flex-wrap gap-2 mb-4">
                     {(user.skills || []).slice(0, 4).map((skill, i) => (
-                      <span key={i} className="text-[10px] px-2 py-1 rounded bg-white/5 text-slate-400 border border-white/5">
+                      <span
+                        key={i}
+                        className="text-[10px] px-2 py-1 rounded bg-white/5 text-slate-400 border border-white/5"
+                      >
                         {skill}
                       </span>
                     ))}
@@ -189,7 +197,6 @@ export default function SearchPage() {
             )
           )}
         </div>
-
       </div>
     </div>
   );

@@ -3,6 +3,11 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import {
+  fetchUserAction,
+  updateUserAction,
+  updatePasswordAction,
+} from "@/app/actions/actions";
 
 export default function ProfilePage({ params }) {
   const { id } = params;
@@ -23,7 +28,7 @@ export default function ProfilePage({ params }) {
   const [profilePhoto, setProfilePhoto] = useState(null);
   const fileInputRef = useRef(null);
 
-  // UI States
+  // UI states
   const [loadingUpdate, setLoadingUpdate] = useState(false);
   const [loadingPassword, setLoadingPassword] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -31,118 +36,139 @@ export default function ProfilePage({ params }) {
 
   useEffect(() => setAnimate(true), []);
 
-  // Fetch
+  /* =========================
+     FETCH USER (SERVER ACTION)
+  ========================= */
+
   useEffect(() => {
-    const fetchUser = async () => {
-      const token = localStorage.getItem("token");
-      if (!token) {
+    let mounted = true;
+
+    (async () => {
+      const res = await fetchUserAction(id);
+
+      if (!res.success) {
         router.push("/auth/login");
         return;
       }
-      try {
-        const res = await fetch(`/api/user/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (res.ok) {
-          setUserData(data.user);
-          setForm({ name: data.user.name, email: data.user.email });
-          setSkills(data.user.skills?.join(", ") || "");
-          setProjects(data.user.projects?.join("\n") || "");
-          setDescription(data.user.description || "");
-          setProfilePhoto(data.user.profilePhoto || null);
-        } else {
-          router.push("/auth/login");
-        }
-      } catch (err) {
-        console.error("Profile fetch error:", err);
-      }
+
+      if (!mounted) return;
+
+      const user = res.data.user;
+
+      setUserData(user);
+      setForm({ name: user.name, email: user.email });
+      setSkills(user.skills?.join(", ") || "");
+      setProjects(user.projects?.join("\n") || "");
+      setDescription(user.description || "");
+      setProfilePhoto(user.profilePhoto || null);
+
+      // UI convenience only (allowed)
+      localStorage.setItem("user", JSON.stringify(user));
+    })();
+
+    return () => {
+      mounted = false;
     };
-    fetchUser();
   }, [id, router]);
 
-  // Update
+  /* =========================
+     UPDATE PROFILE
+  ========================= */
+
   const handleUpdate = async (e) => {
     e.preventDefault();
     setLoadingUpdate(true);
-    const token = localStorage.getItem("token");
-    if (!token) return;
 
     const updateData = {
       name: form.name || userData.name,
-      skills: skills.split(/[,\n]+/).map((s) => s.trim()).filter(Boolean),
-      projects: projects.split(/\n/).map((p) => p.trim()).filter(Boolean),
+      skills: skills
+        .split(/[,\n]+/)
+        .map((s) => s.trim())
+        .filter(Boolean),
+      projects: projects
+        .split(/\n/)
+        .map((p) => p.trim())
+        .filter(Boolean),
       description,
       profilePhoto,
     };
 
-    try {
-      const res = await fetch(`/api/user/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(updateData),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setUserData(data.user);
-        localStorage.setItem("user", JSON.stringify(data.user));
-        setEditing(false);
-        alert("Profile updated!");
-      } else {
-        alert(data.error || "Update failed");
-      }
-    } catch (err) {
-      console.error(err);
+    const res = await updateUserAction(id, updateData);
+
+    if (res.success) {
+      setUserData(res.data.user);
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+      setEditing(false);
+      alert("Profile updated!");
+    } else {
+      alert(res.error || "Update failed");
     }
+
     setLoadingUpdate(false);
   };
 
-  // Password
+  /* =========================
+     CHANGE PASSWORD
+  ========================= */
+
   const handlePasswordChange = async (e) => {
     e.preventDefault();
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) return alert("Passwords mismatch");
+
+    if (
+      passwordForm.newPassword !== passwordForm.confirmPassword
+    ) {
+      alert("Passwords mismatch");
+      return;
+    }
+
     setLoadingPassword(true);
 
-    const token = localStorage.getItem("token");
-    try {
-      const res = await fetch(`/api/user/${id}/password`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(passwordForm),
+    const res = await updatePasswordAction(id, passwordForm);
+
+    if (res.success) {
+      alert("Password changed!");
+      setChangingPassword(false);
+      setPasswordForm({
+        oldPassword: "",
+        newPassword: "",
+        confirmPassword: "",
       });
-      const data = await res.json();
-      if (res.ok) {
-        alert("Password changed!");
-        setChangingPassword(false);
-        setPasswordForm({ oldPassword: "", newPassword: "", confirmPassword: "" });
-      } else {
-        alert(data.error || "Failed");
-      }
-    } catch (err) {
-      console.error(err);
+    } else {
+      alert(res.error || "Failed");
     }
+
     setLoadingPassword(false);
   };
 
-  // Photo
+  /* =========================
+     PHOTO (UI-ONLY)
+  ========================= */
+
   const handleProfilePhotoChange = (e) => {
     const file = e.target.files[0];
-    if (file && file.type.startsWith("image/")) {
-      setPhotoUploading(true);
-      const reader = new FileReader();
-      reader.onload = () => {
-        setProfilePhoto(reader.result);
-        setPhotoUploading(false);
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file || !file.type.startsWith("image/")) return;
+
+    setPhotoUploading(true);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setProfilePhoto(reader.result);
+      setPhotoUploading(false);
+    };
+    reader.readAsDataURL(file);
   };
 
-  if (!userData) return (
-    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-      <div className="animate-spin w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full font-semibold"></div>
-    </div>
-  );
+  /* =========================
+     LOADING STATE
+  ========================= */
+
+  if (!userData)
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full" />
+      </div>
+    );
+
 
   return (
     <div className="min-h-screen w-full bg-[#0a0a0a] text-white pt-24 pb-20 px-4 md:px-8 relative overflow-hidden selection:bg-emerald-500/30">

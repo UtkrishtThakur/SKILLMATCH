@@ -6,59 +6,56 @@ import Pusher from "pusher-js";
 import { toast } from "react-hot-toast";
 import { useNotifications } from "@/context/NotificationContext";
 import MessageBubble from "@/components/MessageBubble";
+import {
+  fetchMessagesAction,
+  sendMessageAction,
+  fetchUnreadNotificationsAction,
+} from "@/app/actions/actions";
 
 export default function ChatWindowPage() {
   const params = useParams();
   const conversationId = params?.id;
 
-  const { setUnreadChats } = useNotifications(); // ⚡ Context hook
+  const { setUnreadChats } = useNotifications();
 
   const [messages, setMessages] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [loadingMessages, setLoadingMessages] = useState(true);
 
-  // Pagination
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [hasMoreOlder, setHasMoreOlder] = useState(true);
 
-  // Input State
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
 
-  // Refs
   const messagesContainerRef = useRef(null);
   const isInitialLoadRef = useRef(true);
   const fetchingOlderRef = useRef(false);
 
-  // --- LOGIC: SCROLL ---
   const scrollToBottom = useCallback((smooth = true) => {
-    try {
-      const el = messagesContainerRef.current;
-      if (!el) return;
-      el.scrollTo({
-        top: el.scrollHeight,
-        behavior: smooth ? "smooth" : "auto",
-      });
-    } catch (e) { /* ignore */ }
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: smooth ? "smooth" : "auto",
+    });
   }, []);
 
-  // --- LOGIC: AUTH ---
   useEffect(() => {
-    if (typeof window === "undefined") return;
     try {
-      const storedUser = JSON.parse(localStorage.getItem("skillmatch_user") || localStorage.getItem("user") || "null");
+      const storedUser = JSON.parse(
+        localStorage.getItem("skillmatch_user") ||
+        localStorage.getItem("user") ||
+        "null"
+      );
       setCurrentUserId(storedUser?._id || storedUser?.id || null);
-    } catch { setCurrentUserId(null); }
+    } catch {
+      setCurrentUserId(null);
+    }
   }, []);
 
-  // --- LOGIC: PUSHER ---
   useEffect(() => {
-    if (!conversationId || typeof window === "undefined") return;
-
-    if (!process.env.NEXT_PUBLIC_PUSHER_KEY) {
-      console.warn("Pusher Key Missing");
-      return;
-    }
+    if (!conversationId) return;
 
     const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY, {
       cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
@@ -67,13 +64,13 @@ export default function ChatWindowPage() {
 
     const channel = pusher.subscribe(`chat-${conversationId}`);
 
-    const handleNewMessage = (msg) => {
+    const onNew = (msg) => {
       if (!msg) return;
       setMessages((prev) => {
-        if (prev.some((x) => String(x._id) === String(msg._id))) return prev;
+        if (prev.some((m) => String(m._id) === String(msg._id))) return prev;
         return [...prev, msg];
       });
-      // Auto-scroll if near bottom
+
       const el = messagesContainerRef.current;
       if (el) {
         const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
@@ -81,192 +78,176 @@ export default function ChatWindowPage() {
       }
     };
 
-    const handleDelete = (payload) => {
+    const onDelete = (payload) => {
       if (!payload?._id) return;
-      setMessages(prev => prev.filter(m => String(m._id) !== String(payload._id)));
+      setMessages((prev) =>
+        prev.filter((m) => String(m._id) !== String(payload._id))
+      );
     };
 
-    channel.bind("new-message", handleNewMessage);
-    channel.bind("delete-message", handleDelete);
+    channel.bind("new-message", onNew);
+    channel.bind("delete-message", onDelete);
 
     return () => {
-      channel.unbind("new-message", handleNewMessage);
-      channel.unbind("delete-message", handleDelete);
+      channel.unbind("new-message", onNew);
+      channel.unbind("delete-message", onDelete);
       pusher.unsubscribe(`chat-${conversationId}`);
     };
   }, [conversationId, scrollToBottom]);
 
-  // --- LOGIC: FETCH MESSAGES ---
   useEffect(() => {
     if (!conversationId) return;
     let mounted = true;
+
     setLoadingMessages(true);
     setHasMoreOlder(true);
 
     (async () => {
       try {
-        const token = localStorage.getItem("token");
-        if (!token) return; // Silent return or redirect
-        const res = await fetch(`/api/chat/${conversationId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
-        if (res.ok) {
-          if (mounted) {
-            setMessages((data.messages || []).map(m => ({ ...m })));
-            setTimeout(() => scrollToBottom(false), 40);
+        const res = await fetchMessagesAction(conversationId);
 
-            // ⚡ Sync Notification State: Check if we still have unread messages elsewhere
-            // If not, clear the global red dot.
-            fetch("/api/notifications/unread", {
-              headers: { Authorization: `Bearer ${token}` }
-            })
-              .then(r => r.json())
-              .then(d => {
-                if (!d.unreadChats) setUnreadChats(false);
-              })
-              .catch(err => console.error("Sync error:", err));
+        if (res.success && mounted) {
+          setMessages(res.data.messages || []);
+          setTimeout(() => scrollToBottom(false), 40);
+
+          const notif = await fetchUnreadNotificationsAction();
+          if (notif.success && !notif.data?.unreadChats) {
+            setUnreadChats(false);
           }
         } else {
           toast.error("Failed to load conversation");
         }
-      } catch (err) {
-        console.error(err);
+      } catch (e) {
+        console.error(e);
       } finally {
         if (mounted) setLoadingMessages(false);
         isInitialLoadRef.current = false;
       }
     })();
-    return () => { mounted = false; };
-  }, [conversationId, scrollToBottom]);
 
-  // --- LOGIC: FETCH OLDER ---
+    return () => {
+      mounted = false;
+    };
+  }, [conversationId, scrollToBottom, setUnreadChats]);
+
   const fetchOlderMessages = useCallback(async () => {
-    if (fetchingOlderRef.current || !hasMoreOlder || !conversationId) return;
+    if (
+      fetchingOlderRef.current ||
+      !hasMoreOlder ||
+      !conversationId ||
+      messages.length === 0
+    )
+      return;
+
     const el = messagesContainerRef.current;
     if (!el) return;
-
-    const oldest = messages[0];
-    const beforeId = oldest?._id; // We can use timestamp too if API supports it, but API uses createdAt < before (if date passed)
-    // Wait, my API change expects `before` as ISO DATE STRING
-    // "const before = searchParams.get("before"); // ISO date string ... query.createdAt = { $lt: new Date(before) };"
-    // The frontend code here sends `beforeId`?
-    // "const url = `/api/chat/${conversationId}${beforeId ? `?before=${encodeURIComponent(beforeId)}` : ''}`;"
-    // If I send an ID to `new Date(ID)`, it will be Invalid Date!
-    // I NEED TO FIX THIS IN FRONTEND TO SEND TIMESTAMP `oldest.createdAt`!
 
     fetchingOlderRef.current = true;
     setLoadingOlder(true);
 
+    const oldest = messages[0];
+    const before = oldest?.createdAt;
+    const prevHeight = el.scrollHeight;
+
     try {
-      const token = localStorage.getItem("token");
-      if (!token) return;
+      const res = await fetchMessagesAction(conversationId, { before });
 
-      const prevHeight = el.scrollHeight;
-      // FIX: Use createdAt
-      const beforeDate = oldest?.createdAt;
-      const url = `/api/chat/${conversationId}${beforeDate ? `?before=${encodeURIComponent(beforeDate)}` : ''}`;
-
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json();
-
-      if (res.ok) {
-        const older = data.messages || [];
-        if (older.length === 0) setHasMoreOlder(false);
-        else {
-          setMessages(prev => {
-            const ids = new Set(prev.map(p => String(p._id)));
-            const filtered = older.filter(m => !ids.has(String(m._id)));
+      if (res.success) {
+        const older = res.data.messages || [];
+        if (older.length === 0) {
+          setHasMoreOlder(false);
+        } else {
+          setMessages((prev) => {
+            const ids = new Set(prev.map((m) => String(m._id)));
+            const filtered = older.filter(
+              (m) => !ids.has(String(m._id))
+            );
             return [...filtered, ...prev];
           });
-          // Restore Scroll
+
           setTimeout(() => {
             const added = el.scrollHeight - prevHeight;
             if (added > 0) el.scrollTop += added;
           }, 40);
         }
       }
-    } catch (err) {
-      console.error("Older fetch error", err);
+    } catch (e) {
+      console.error("Older fetch error", e);
     } finally {
-      setLoadingOlder(false);
       fetchingOlderRef.current = false;
+      setLoadingOlder(false);
     }
   }, [conversationId, hasMoreOlder, messages]);
 
-  // --- LOGIC: SCROLL DETECTOR ---
   useEffect(() => {
     const el = messagesContainerRef.current;
     if (!el) return;
+
     const onScroll = () => {
       if (el.scrollTop < 120 && !loadingOlder && hasMoreOlder) {
         fetchOlderMessages();
       }
     };
+
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
   }, [fetchOlderMessages, hasMoreOlder, loadingOlder]);
 
-  // --- LOGIC: SEND MESSAGE ---
   const handleSend = async (e) => {
     e?.preventDefault();
     if (!newMessage.trim() || sending) return;
 
-    const tempId = "temp-" + Date.now();
     const content = newMessage.trim();
+    const tempId = "temp-" + Date.now();
+
     setNewMessage("");
     setSending(true);
 
-    // Optimistic
-    const optimisticMsg = {
+    const optimistic = {
       _id: tempId,
       content,
-      sender: { _id: currentUserId }, // Mock sender for display
+      sender: { _id: currentUserId },
       createdAt: new Date().toISOString(),
-      optimistic: true // MessageBubble supports this
+      optimistic: true,
     };
-    setMessages(prev => [...prev, optimisticMsg]);
+
+    setMessages((prev) => [...prev, optimistic]);
     setTimeout(() => scrollToBottom(true), 60);
 
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/api/chat/${conversationId}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ content })
-      });
-      const data = await res.json();
+      const res = await sendMessageAction(
+        conversationId,
+        content,
+        tempId
+      );
 
-      if (res.ok) {
-        setMessages(prev => prev.map(m => m._id === tempId ? data.message : m));
+      if (res.success) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m._id === tempId ? res.data.message : m
+          )
+        );
       } else {
-        toast.error(data.error || "Failed to send");
-        setMessages(prev => prev.filter(m => m._id !== tempId));
+        toast.error(res.error || "Failed to send");
+        setMessages((prev) => prev.filter((m) => m._id !== tempId));
       }
-    } catch (err) {
-      console.error(err);
-      setMessages(prev => prev.filter(m => m._id !== tempId));
+    } catch (e) {
+      console.error(e);
       toast.error("Send failed");
+      setMessages((prev) => prev.filter((m) => m._id !== tempId));
     } finally {
       setSending(false);
     }
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#0a0a0a] text-white pt-24 pb-8 px-4 md:px-8 relative overflow-hidden selection:bg-fuchsia-500/30 font-sans">
-
-      {/* Background (Optimized) */}
+    <div className="min-h-screen w-full bg-[#0a0a0a] text-white pt-24 pb-8 px-4 md:px-8 relative overflow-hidden">
       <div className="fixed inset-0 z-0 animate-aurora opacity-20 pointer-events-none"></div>
 
       <div className="max-w-5xl mx-auto relative z-10 h-[calc(100vh-8rem)] flex flex-col bg-[#111] border border-white/10 rounded-3xl overflow-hidden shadow-2xl backdrop-blur-md">
-
-        {/* Header */}
-        <div className="p-4 border-b border-white/5 bg-white/5 backdrop-blur-md flex justify-between items-center z-20">
+        <div className="p-4 border-b border-white/5 bg-white/5 flex justify-between items-center">
           <div>
-            <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-violet-200 to-fuchsia-200">
+            <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-violet-200 to-fuchsia-200">
               Chat Room
             </h2>
             <p className="text-xs text-emerald-400 font-mono flex items-center gap-1">
@@ -275,38 +256,37 @@ export default function ChatWindowPage() {
             </p>
           </div>
           <button
-            onClick={() => window.location.href = '/chat'}
-            className="p-2 hover:bg-white/10 rounded-xl transition-colors text-slate-400 hover:text-white"
+            onClick={() => (window.location.href = "/chat")}
+            className="p-2 hover:bg-white/10 rounded-xl text-slate-400"
           >
             ✕
           </button>
         </div>
 
-        {/* Messages Area */}
         <div
           ref={messagesContainerRef}
           className="flex-1 overflow-y-auto p-4 md:p-6 space-y-2 scrollbar-hide"
         >
           {loadingOlder && (
             <div className="flex justify-center py-2">
-              <span className="text-xs text-slate-500 animate-pulse">Loading history...</span>
+              <span className="text-xs text-slate-500 animate-pulse">
+                Loading history...
+              </span>
             </div>
           )}
 
           {loadingMessages ? (
             <div className="h-full flex items-center justify-center text-slate-500">
-              <div className="animate-spin w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full mr-3"></div>
               Loading messages...
             </div>
           ) : messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-slate-500 opacity-50">
-              <span className="text-4xl mb-2">👋</span>
-              <p>Start the conversation!</p>
+            <div className="h-full flex items-center justify-center text-slate-500">
+              Start the conversation!
             </div>
           ) : (
-            messages.map((msg, idx) => (
+            messages.map((msg) => (
               <MessageBubble
-                key={msg._id || idx}
+                key={msg._id}
                 message={msg}
                 currentUserId={currentUserId}
               />
@@ -314,36 +294,23 @@ export default function ChatWindowPage() {
           )}
         </div>
 
-        {/* Input Area */}
-        <div className="p-4 border-t border-white/10 bg-[#0a0a0a]/50 backdrop-blur-xl z-20">
-          <form onSubmit={handleSend} className="relative flex items-center gap-2">
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Type a message..."
-                className="w-full bg-[#1a1a1a] border border-white/10 rounded-full pl-5 pr-12 py-3 focus:outline-none focus:border-violet-500/50 text-white placeholder-slate-500 transition-all shadow-inner"
-              />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 hidden md:block">
-                <kbd className="px-2 py-0.5 rounded bg-white/5 text-slate-500 text-[10px] border border-white/5 font-mono">ENTER</kbd>
-              </div>
-            </div>
-
+        <div className="p-4 border-t border-white/10 bg-[#0a0a0a]/50">
+          <form onSubmit={handleSend} className="flex gap-2">
+            <input
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="Type a message..."
+              className="flex-1 bg-[#1a1a1a] border border-white/10 rounded-full px-5 py-3"
+            />
             <button
               type="submit"
               disabled={!newMessage.trim() || sending}
-              className="p-3 bg-gradient-to-r from-emerald-500 to-green-500 rounded-full text-black shadow-lg hover:shadow-emerald-500/20 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 transition-all"
+              className="p-3 bg-gradient-to-r from-emerald-500 to-green-500 rounded-full"
             >
-              {sending ? (
-                <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 7-7 7 7" /><path d="M12 19V5" /></svg>
-              )}
+              {sending ? "..." : "↑"}
             </button>
           </form>
         </div>
-
       </div>
     </div>
   );

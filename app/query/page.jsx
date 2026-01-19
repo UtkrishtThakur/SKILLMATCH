@@ -4,6 +4,10 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import QueryCard from "@/components/QueryCard";
+import {
+    fetchQueriesAction,
+    postQueryAction,
+} from "@/app/actions/actions";
 
 export default function QueryPage() {
     const [activeTab, setActiveTab] = useState("feed");
@@ -12,76 +16,88 @@ export default function QueryPage() {
     const [showModal, setShowModal] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
-    // Form State
+    // Form state
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [skillsInput, setSkillsInput] = useState("");
 
     const router = useRouter();
 
+    /* =========================
+       FETCH QUERIES (SERVER ACTION)
+    ========================= */
+
     useEffect(() => {
-        fetchQueries();
+        let mounted = true;
+        setLoading(true);
+
+        (async () => {
+            try {
+                const res = await fetchQueriesAction(activeTab);
+
+                if (!res.success) {
+                    toast.error(res.error || "Failed to fetch queries");
+                    return;
+                }
+
+                if (mounted) {
+                    setQueries(res.data.queries || []);
+                }
+            } catch (err) {
+                console.error(err);
+                toast.error("Network error");
+            } finally {
+                if (mounted) setLoading(false);
+            }
+        })();
+
+        return () => {
+            mounted = false;
+        };
     }, [activeTab]);
 
-    const fetchQueries = async () => {
-        setLoading(true);
-        try {
-            const token = localStorage.getItem("token");
-            if (!token) return;
-
-            const res = await fetch(`/api/query?view=${activeTab}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const data = await res.json();
-            if (res.ok) {
-                setQueries(data.queries || []);
-            } else {
-                toast.error(data.error || "Failed to fetch queries");
-            }
-        } catch (err) {
-            console.error(err);
-            toast.error("Network error");
-        } finally {
-            setLoading(false);
-        }
-    };
+    /* =========================
+       POST QUERY (SERVER ACTION)
+    ========================= */
 
     const handlePostQuery = async (e) => {
         e.preventDefault();
         setSubmitting(true);
 
-        const skills = skillsInput.split(",").map(s => s.trim()).filter(s => s);
+        const skills = skillsInput
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
 
-        try {
-            const token = localStorage.getItem("token");
-            const res = await fetch("/api/query", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ title, description, skills }),
-            });
+        const res = await postQueryAction({
+            title,
+            description,
+            skills,
+        });
 
-            const data = await res.json();
-            if (res.ok) {
-                toast.success("Query posted!");
-                setShowModal(false);
-                setTitle("");
-                setDescription("");
-                setSkillsInput("");
-                if (activeTab === "my-queries") fetchQueries();
-                else setActiveTab("my-queries");
+        if (res.success) {
+            toast.success("Query posted!");
+            setShowModal(false);
+            setTitle("");
+            setDescription("");
+            setSkillsInput("");
+
+            if (activeTab === "my-queries") {
+                // refresh
+                const refreshed = await fetchQueriesAction("my-queries");
+                if (refreshed.success) {
+                    setQueries(refreshed.data.queries || []);
+                }
             } else {
-                toast.error(data.error || "Failed to post query");
+                setActiveTab("my-queries");
             }
-        } catch (err) {
-            console.error(err);
-            toast.error("Something went wrong");
-        } finally {
-            setSubmitting(false);
+        } else {
+            toast.error(res.error || "Failed to post query");
         }
+
+        setSubmitting(false);
     };
+
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] text-white pt-24 pb-12 px-4 md:px-8">
@@ -113,8 +129,8 @@ export default function QueryPage() {
                             key={tab}
                             onClick={() => setActiveTab(tab)}
                             className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === tab
-                                    ? "bg-white/10 text-white"
-                                    : "text-slate-500 hover:text-slate-300"
+                                ? "bg-white/10 text-white"
+                                : "text-slate-500 hover:text-slate-300"
                                 }`}
                         >
                             {tab === "feed" ? "For You" : tab === "my-queries" ? "My Queries" : "My Solutions"}
