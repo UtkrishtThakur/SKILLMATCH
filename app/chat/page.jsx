@@ -36,7 +36,7 @@ export default function ChatPage() {
 
       if (!foundId) {
         setLoading(false);
-        router.push("/login");
+        router.push("/auth/login");
         return;
       }
 
@@ -44,7 +44,7 @@ export default function ChatPage() {
     } catch (err) {
       console.error("User init failed:", err);
       setLoading(false);
-      router.push("/login");
+      router.push("/auth/login");
     }
   }, [router]);
 
@@ -60,7 +60,7 @@ export default function ChatPage() {
 
         if (!res.success) {
           toast.error(res.error || "Session expired");
-          router.push("/login");
+          router.push("/auth/login");
           return;
         }
 
@@ -159,6 +159,11 @@ export default function ChatPage() {
                     (p) => p._id !== currentUserId
                   ) || conv.participants[0];
 
+                const avatar =
+                  typeof otherUser?.profilePhoto === "string" && otherUser.profilePhoto.trim()
+                    ? otherUser.profilePhoto
+                    : "/default-avatar.png";
+
                 return (
                   <div
                     key={conv._id}
@@ -168,9 +173,7 @@ export default function ChatPage() {
                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-violet-500 to-fuchsia-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
 
                     <Image
-                      src={
-                        otherUser?.profilePhoto || "/default-avatar.png"
-                      }
+                      src={avatar}
                       alt={otherUser?.name || "User"}
                       width={56}
                       height={56}
@@ -187,8 +190,8 @@ export default function ChatPage() {
                       <div className="flex justify-between items-center">
                         <p
                           className={`text-sm truncate ${conv.hasUnread
-                              ? "text-white font-semibold"
-                              : "text-slate-400 group-hover:text-slate-300"
+                            ? "text-white font-semibold"
+                            : "text-slate-400 group-hover:text-slate-300"
                             }`}
                         >
                           {conv.lastMessage?.content ||

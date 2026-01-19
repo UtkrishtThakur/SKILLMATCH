@@ -33,8 +33,9 @@ async function safe(fn) {
  * Gets the Authorization header from the httpOnly cookie.
  * Throws if no token is present.
  */
-function getAuthHeader() {
-    const cookieStore = cookies();
+// Helper to get token safely (async for Next.js 15+)
+async function getAuthHeader() {
+    const cookieStore = await cookies();
     const token = cookieStore.get(COOKIE_NAME)?.value;
 
     if (!token) {
@@ -56,10 +57,13 @@ export async function loginAction(payload) {
         });
 
         if (data.token) {
-            cookies().set(COOKIE_NAME, data.token, COOKIE_OPTS);
+            const cookieStore = await cookies();
+            cookieStore.set(COOKIE_NAME, data.token, COOKIE_OPTS);
         }
 
-        return data;
+        // 🔒 SECURITY: Do NOT leak token to client
+        const { token, ...safeData } = data;
+        return safeData;
     });
 }
 
@@ -81,16 +85,20 @@ export async function verifyOtpAction(payload) {
         });
 
         if (data.token) {
-            cookies().set(COOKIE_NAME, data.token, COOKIE_OPTS);
+            const cookieStore = await cookies();
+            cookieStore.set(COOKIE_NAME, data.token, COOKIE_OPTS);
         }
 
-        return data;
+        // 🔒 SECURITY: Do NOT leak token to client
+        const { token, ...safeData } = data;
+        return safeData;
     });
 }
 
 export async function logoutAction() {
     return safe(async () => {
-        cookies().delete(COOKIE_NAME);
+        const cookieStore = await cookies();
+        cookieStore.delete(COOKIE_NAME);
         return { message: "Logged out" };
     });
 }
@@ -102,7 +110,7 @@ export async function logoutAction() {
 export async function fetchUserAction(userId) {
     return safe(async () => {
         return gatewayClient(`api/user/${userId}`, {
-            headers: getAuthHeader(),
+            headers: await getAuthHeader(),
         });
     });
 }
@@ -111,7 +119,7 @@ export async function updateUserAction(userId, payload) {
     return safe(async () => {
         return gatewayClient(`api/user/${userId}`, {
             method: "PUT",
-            headers: getAuthHeader(),
+            headers: await getAuthHeader(),
             body: JSON.stringify(payload),
         });
     });
@@ -121,7 +129,7 @@ export async function updatePasswordAction(userId, payload) {
     return safe(async () => {
         return gatewayClient(`api/user/${userId}/password`, {
             method: "PUT",
-            headers: getAuthHeader(),
+            headers: await getAuthHeader(),
             body: JSON.stringify(payload),
         });
     });
@@ -138,7 +146,7 @@ export async function fetchQueriesAction(view) {
         if (view) params.append("view", view);
 
         return gatewayClient(`api/query?${params.toString()}`, {
-            headers: getAuthHeader(),
+            headers: await getAuthHeader(),
         });
     });
 }
@@ -146,7 +154,7 @@ export async function fetchQueriesAction(view) {
 export async function fetchQueryDetailAction(queryId) {
     return safe(async () => {
         return gatewayClient(`api/query/${queryId}`, {
-            headers: getAuthHeader(),
+            headers: await getAuthHeader(),
         });
     });
 }
@@ -155,7 +163,7 @@ export async function postQueryAction(payload) {
     return safe(async () => {
         return gatewayClient("api/query", {
             method: "POST",
-            headers: getAuthHeader(),
+            headers: await getAuthHeader(),
             body: JSON.stringify(payload),
         });
     });
@@ -165,7 +173,7 @@ export async function answerQueryAction(queryId, payload) {
     return safe(async () => {
         return gatewayClient(`api/query/${queryId}/answer`, {
             method: "POST",
-            headers: getAuthHeader(),
+            headers: await getAuthHeader(),
             body: JSON.stringify(payload),
         });
     });
@@ -175,7 +183,7 @@ export async function feedbackQueryAction(queryId, payload) {
     return safe(async () => {
         return gatewayClient(`api/query/${queryId}/feedback`, {
             method: "PUT",
-            headers: getAuthHeader(),
+            headers: await getAuthHeader(),
             body: JSON.stringify(payload),
         });
     });
@@ -189,7 +197,7 @@ export async function searchUsersAction(term) {
     return safe(async () => {
         const params = new URLSearchParams({ query: term });
         return gatewayClient(`api/search?${params.toString()}`, {
-            headers: getAuthHeader(),
+            headers: await getAuthHeader(),
         });
     });
 }
@@ -198,29 +206,30 @@ export async function requestConnectionAction(receiverId) {
     return safe(async () => {
         return gatewayClient("api/connect", {
             method: "POST",
-            headers: getAuthHeader(),
+            headers: await getAuthHeader(),
             body: JSON.stringify({ receiverId }),
         });
     });
 }
 
-export async function fetchConnectionsAction(userId) {
+export async function fetchConnectionsAction() {
     return safe(async () => {
-        return gatewayClient(`api/connect/${userId}`, {
-            headers: getAuthHeader(),
+        return gatewayClient("api/connect", {
+            headers: await getAuthHeader(),
         });
     });
 }
 
-export async function respondConnectionAction(userId, action, requestId) {
+export async function respondConnectionAction(action, requestId) {
     return safe(async () => {
-        return gatewayClient(`api/connect/${userId}`, {
+        return gatewayClient("api/connect", {
             method: "PUT",
-            headers: getAuthHeader(),
+            headers: await getAuthHeader(),
             body: JSON.stringify({ action, requestId }),
         });
     });
 }
+
 
 /* =====================================================
    Chat Actions
@@ -229,7 +238,7 @@ export async function respondConnectionAction(userId, action, requestId) {
 export async function fetchConversationsAction() {
     return safe(async () => {
         return gatewayClient("api/chat/conversations", {
-            headers: getAuthHeader(),
+            headers: await getAuthHeader(),
         });
     });
 }
@@ -238,7 +247,7 @@ export async function startConversationAction(receiverId) {
     return safe(async () => {
         return gatewayClient("api/chat/conversations", {
             method: "POST",
-            headers: getAuthHeader(),
+            headers: await getAuthHeader(),
             body: JSON.stringify({ receiverId }),
         });
     });
@@ -248,7 +257,7 @@ export async function fetchMessagesAction(conversationId, params = {}) {
     return safe(async () => {
         const qs = new URLSearchParams(params);
         return gatewayClient(`api/chat/${conversationId}?${qs.toString()}`, {
-            headers: getAuthHeader(),
+            headers: await getAuthHeader(),
         });
     });
 }
@@ -257,7 +266,7 @@ export async function sendMessageAction(conversationId, content, tempId) {
     return safe(async () => {
         return gatewayClient(`api/chat/${conversationId}`, {
             method: "POST",
-            headers: getAuthHeader(),
+            headers: await getAuthHeader(),
             body: JSON.stringify({ content, tempId }), // Pass tempId for optimistic UI correlation if needed
         });
     });

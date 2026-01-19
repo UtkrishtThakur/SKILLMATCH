@@ -6,6 +6,7 @@ import { formatDistanceToNow } from "date-fns";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { fetchQueryDetailAction, answerQueryAction, feedbackQueryAction } from "@/app/actions/actions";
 
 export default function QueryDetailPage({ params }) {
     const [query, setQuery] = useState(null);
@@ -41,28 +42,11 @@ export default function QueryDetailPage({ params }) {
 
     const fetchQuery = async () => {
         try {
-            // We can reuse the GET API but we need a single item endpoint. 
-            // Wait, the main GET route returns a list. 
-            // I should have made a single GET endpoint. 
-            // Let's modify the plan: use the feed API but filter? No, inefficient.
-            // Actually, let's just make a new simple GET endpoint component in the same file or a new route?
-            // I missed implementing a single GET route in the plan.
-            // I will implement a fetch directly here using the ID if I can, OR I will add a GET to [id]/answer route?
-            // Actually, usually `app/api/query/[id]/route.js` would differ from `answer`.
-            // Let's assume I need to fetch it.
-            // I'll check if I can filter the main list by ID? No, the main route doesn't support it.
-            // I will implement a quick fetch logic in the `app/api/query/[id]/answer`? No that's dirty.
-            // I'll create `app/api/query/[id]/route.js` now as well, implicit requirement.
-
-            const token = localStorage.getItem("token");
-            const res = await fetch(`/api/query/${id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            const data = await res.json();
-            if (res.ok) {
-                setQuery(data.query);
+            const res = await fetchQueryDetailAction(id);
+            if (res.success) {
+                setQuery(res.data.query);
             } else {
-                toast.error(data.error || "Failed to load query");
+                toast.error(res.error || "Failed to load query");
             }
         } catch (e) {
             console.error(e);
@@ -77,22 +61,13 @@ export default function QueryDetailPage({ params }) {
         setSubmitting(true);
 
         try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`/api/query/${id}/answer`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify({ content: answerContent })
-            });
-            const data = await res.json();
-            if (res.ok) {
+            const res = await answerQueryAction(id, { content: answerContent });
+            if (res.success) {
                 toast.success("Answer submitted!");
                 setAnswerContent("");
                 fetchQuery(); // Refresh
             } else {
-                toast.error(data.error || "Failed");
+                toast.error(res.error || "Failed");
             }
         } catch (e) {
             console.error(e);
@@ -104,17 +79,8 @@ export default function QueryDetailPage({ params }) {
 
     const toggleLike = async (answerId) => {
         try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`/api/query/${id}/feedback`, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify({ answerId })
-            });
-            const data = await res.json();
-            if (res.ok) {
+            const res = await feedbackQueryAction(id, { answerId });
+            if (res.success) {
                 // Optimistic update
                 setQuery(prev => ({
                     ...prev,
@@ -122,9 +88,9 @@ export default function QueryDetailPage({ params }) {
                         a._id === answerId ? { ...a, likes: !a.likes } : a
                     )
                 }));
-                toast.success(data.likes ? "Marked as helpful!" : "Unmarked");
+                toast.success(res.data.likes ? "Marked as helpful!" : "Unmarked");
             } else {
-                toast.error(data.error);
+                toast.error(res.error);
             }
         } catch (e) {
             console.error(e);
@@ -147,7 +113,11 @@ export default function QueryDetailPage({ params }) {
                 <div className="bg-white/5 border border-white/10 rounded-2xl p-8 mb-8">
                     <div className="flex items-center gap-4 mb-6">
                         <Image
-                            src={query.creatorId?.profilePhoto || "/default-avatar.png"}
+                            src={
+                                typeof query.creatorId?.profilePhoto === "string" && query.creatorId.profilePhoto.trim()
+                                    ? query.creatorId.profilePhoto
+                                    : "/default-avatar.png"
+                            }
                             alt="User"
                             width={56}
                             height={56}
@@ -195,7 +165,11 @@ export default function QueryDetailPage({ params }) {
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="flex items-center gap-3">
                                         <Image
-                                            src={answer.responderId?.profilePhoto || "/default-avatar.png"}
+                                            src={
+                                                typeof answer.responderId?.profilePhoto === "string" && answer.responderId.profilePhoto.trim()
+                                                    ? answer.responderId.profilePhoto
+                                                    : "/default-avatar.png"
+                                            }
                                             alt="Responder"
                                             width={40}
                                             height={40}

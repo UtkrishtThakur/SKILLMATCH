@@ -7,6 +7,7 @@ import {
   fetchUserAction,
   updateUserAction,
   updatePasswordAction,
+  logoutAction,
 } from "@/app/actions/actions";
 
 export default function ProfilePage({ params }) {
@@ -187,7 +188,13 @@ export default function ProfilePage({ params }) {
             <div className="relative group">
               <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-[#0a0a0a] overflow-hidden shadow-2xl">
                 <Image
-                  src={profilePhoto || userData.profilePhoto || "/default-avatar.png"}
+                  src={
+                    typeof profilePhoto === "string" && profilePhoto.trim()
+                      ? profilePhoto
+                      : typeof userData.profilePhoto === "string" && userData.profilePhoto.trim()
+                        ? userData.profilePhoto
+                        : "/default-avatar.png"
+                  }
                   alt="Profile"
                   width={160}
                   height={160}
@@ -221,8 +228,8 @@ export default function ProfilePage({ params }) {
                   Security
                 </button>
                 <button
-                  onClick={() => {
-                    localStorage.removeItem("token");
+                  onClick={async () => {
+                    await logoutAction();
                     localStorage.removeItem("user");
                     router.push("/");
                   }}

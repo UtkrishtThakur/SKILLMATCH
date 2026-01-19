@@ -27,7 +27,11 @@ export default function MessageBubble({ message, currentUserId }) {
     <div className={`flex ${isSender ? "justify-end" : "justify-start"} my-3 px-2`}>
       {!isSender && (
         <Image
-          src={(senderObj && senderObj.profilePhoto) || "/default-avatar.png"}
+          src={
+            typeof (senderObj && senderObj.profilePhoto) === "string" && (senderObj.profilePhoto).trim()
+              ? senderObj.profilePhoto
+              : "/default-avatar.png"
+          }
           alt={(senderObj && senderObj.name) || "User"}
           width={36}
           height={36}
@@ -93,7 +97,11 @@ export default function MessageBubble({ message, currentUserId }) {
 
       {isSender && (
         <Image
-          src={(senderObj && senderObj.profilePhoto) || "/default-avatar.png"}
+          src={
+            typeof (senderObj && senderObj.profilePhoto) === "string" && (senderObj.profilePhoto).trim()
+              ? senderObj.profilePhoto
+              : "/default-avatar.png"
+          }
           alt={(senderObj && senderObj.name) || "You"}
           width={36}
           height={36}

@@ -151,7 +151,11 @@ export default function SearchPage() {
                 <div className="relative z-10 flex flex-col h-full">
                   <div className="flex items-center gap-4 mb-4">
                     <Image
-                      src={user.profilePhoto || "/default-avatar.png"}
+                      src={
+                        typeof user.profilePhoto === "string" && user.profilePhoto.trim()
+                          ? user.profilePhoto
+                          : "/default-avatar.png"
+                      }
                       alt={user.name}
                       width={60}
                       height={60}
