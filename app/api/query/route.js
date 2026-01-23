@@ -5,16 +5,49 @@ import User from "@/models/User";
 import { verifyToken } from "@/utils/auth";
 import { sendQueryNotificationEmail } from "@/lib/email";
 
+/* =========================
+   SKILL MATCHING HELPERS
+========================= */
+
+function normalizeSkill(skill = "") {
+    return skill
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, " ");
+}
+
+function skillToRegex(skill) {
+    const normalized = normalizeSkill(skill);
+
+    // Escape regex special chars
+    const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    // Partial match: minimum 3 chars
+    const partial = escaped.slice(0, Math.max(3, escaped.length));
+
+    return new RegExp(partial, "i");
+}
+
+/* =========================
+   POST: CREATE QUERY
+========================= */
+
 export async function POST(req) {
     try {
         await dbConnect();
+
         const decoded = verifyToken(req);
-        if (!decoded) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        if (!decoded) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
 
         const { title, description, skills } = await req.json();
 
-        if (!title || !description || !skills || skills.length === 0) {
-            return NextResponse.json({ error: "Title, description, and at least one skill are required." }, { status: 400 });
+        if (!title || !description || !Array.isArray(skills) || skills.length === 0) {
+            return NextResponse.json(
+                { error: "Title, description, and at least one skill are required." },
+                { status: 400 }
+            );
         }
 
         const newQuery = await Query.create({
@@ -24,80 +57,103 @@ export async function POST(req) {
             skills,
         });
 
-        // Send email notifications to users with matching skills
-        // Do this asynchronously to not block the response
+        /* ---- ASYNC EMAIL NOTIFICATIONS ---- */
         (async () => {
             try {
-                // Get the creator's name
-                const creator = await User.findById(decoded.id).select("name").lean();
+                const creator = await User.findById(decoded.id)
+                    .select("name")
+                    .lean();
+
                 const creatorName = creator?.name || "A user";
 
-                // Find users who have at least one matching skill and are verified
-                // Exclude the query creator from receiving the notification
+                // Build fuzzy regexes from query skills
+                const skillRegexes = skills.map(skill => skillToRegex(skill));
+
                 const matchingUsers = await User.find({
-                    _id: { $ne: decoded.id }, // Exclude the creator
-                    skills: { $in: skills }, // At least one skill matches
-                    verified: true, // Only send to verified users
-                    email: { $exists: true, $ne: "" } // Must have a valid email
+                    _id: { $ne: decoded.id },
+                    verified: true,
+                    email: { $exists: true, $ne: "" },
+                    skills: {
+                        $elemMatch: { $in: skillRegexes }
+                    }
                 }).select("email name").lean();
 
-                // Send emails to all matching users
-                const emailPromises = matchingUsers.map(user =>
-                    sendQueryNotificationEmail(user.email, {
-                        queryId: newQuery._id.toString(),
-                        title,
-                        description,
-                        skills,
-                        creatorName
-                    }).catch(err => {
-                        console.error(`Failed to send email to ${user.email}:`, err);
-                    })
+                await Promise.all(
+                    matchingUsers.map(user =>
+                        sendQueryNotificationEmail(user.email, {
+                            queryId: newQuery._id.toString(),
+                            title,
+                            description,
+                            skills,
+                            creatorName,
+                        }).catch(err => {
+                            console.error(`Failed to send email to ${user.email}:`, err);
+                        })
+                    )
                 );
 
-                await Promise.all(emailPromises);
                 console.log(`📧 Sent ${matchingUsers.length} query notification emails`);
-            } catch (emailError) {
-                console.error("Error sending query notification emails:", emailError);
+            } catch (err) {
+                console.error("Query email notification error:", err);
             }
         })();
 
-        return NextResponse.json({ message: "Query posted successfully", query: newQuery }, { status: 201 });
+        return NextResponse.json(
+            { message: "Query posted successfully", query: newQuery },
+            { status: 201 }
+        );
     } catch (err) {
         console.error("Query POST error:", err);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
 
+/* =========================
+   GET: FETCH QUERIES
+========================= */
+
 export async function GET(req) {
     try {
         await dbConnect();
+
         const decoded = verifyToken(req);
-        if (!decoded) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        if (!decoded) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
 
         const { searchParams } = new URL(req.url);
-        const view = searchParams.get("view") || "feed"; // feed, my-queries, solved
+        const view = searchParams.get("view") || "feed";
 
         let filter = {};
 
         if (view === "my-queries") {
             filter = { creatorId: decoded.id };
-        } else if (view === "solved") {
+        } 
+        else if (view === "solved") {
             filter = { "answers.responderId": decoded.id };
-        } else {
-            // Feed: Show queries that match user's skills AND are NOT created by user
-            const user = await User.findById(decoded.id).select("skills").lean();
-            if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+        } 
+        else {
+            // FEED VIEW (ADVANCED SKILL MATCHING)
+            const user = await User.findById(decoded.id)
+                .select("skills")
+                .lean();
 
-            // If user has no skills, show all? Or show none? Let's show all for now or maybe recent.
-            // Better: Show all recent queries except own. Even better if we match skills.
-            if (user.skills && user.skills.length > 0) {
+            if (!user) {
+                return NextResponse.json({ error: "User not found" }, { status: 404 });
+            }
+
+            if (Array.isArray(user.skills) && user.skills.length > 0) {
+                const skillRegexes = user.skills.map(skill => skillToRegex(skill));
+
                 filter = {
                     creatorId: { $ne: decoded.id },
-                    skills: { $in: user.skills },
-                    status: "open", // Only show open queries in feed
+                    status: "open",
+                    skills: {
+                        $elemMatch: { $in: skillRegexes }
+                    }
                 };
             } else {
-                // Fallback if no skills: Show all open queries except own
+                // Fallback: show all open queries except own
                 filter = {
                     creatorId: { $ne: decoded.id },
                     status: "open",
