@@ -144,6 +144,14 @@ export default function LoginPage() {
                 Register here
               </Link>
             </div>
+            <div className="text-right text-sm">
+              <Link
+                href="/auth/forgot-pass"
+                className="text-emerald-400 hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
           </form>
         </div>
       </div>
