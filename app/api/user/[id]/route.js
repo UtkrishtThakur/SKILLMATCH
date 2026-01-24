@@ -3,84 +3,168 @@ import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import jwt from "jsonwebtoken";
 
-// ✅ GET /api/user/:id -> fetch user profile
-export async function GET(req, context) {
+/* =========================
+   AUTH HELPER
+========================= */
+function getDecodedUser(req) {
+  const authHeader = req.headers.get("authorization");
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+
+  const token = authHeader.split(" ")[1];
+
   try {
-    const { params } = await context; // ✅ Await to satisfy Next.js rules
-    const { id } = params;
-
-    await dbConnect();
-
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const token = authHeader.split(" ")[1];
-    if (!token)
-      return NextResponse.json({ error: "Token missing" }, { status: 401 });
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (err) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-    }
-
-    if (decoded.id !== id)
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-    const user = await User.findById(id).select("-password");
-    if (!user)
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-
-    return NextResponse.json({ user }, { status: 200 });
-  } catch (err) {
-    console.error("GET User error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return jwt.verify(token, process.env.JWT_SECRET);
+  } catch {
+    return null;
   }
 }
 
-// ✅ PUT /api/user/:id -> update profile
-export async function PUT(req, context) {
-  try {
-    const { params } = await context;
-    const { id } = params;
+/* =========================
+   SKILL MATCH HELPERS
+========================= */
+function normalizeSkill(skill = "") {
+  return skill
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9.+# ]/g, "")
+    .replace(/\s+/g, " ");
+}
 
+function tokenize(skill) {
+  return normalizeSkill(skill)
+    .split(" ")
+    .filter(token => token.length >= 3);
+}
+
+function hasHalfMatch(requiredSkills = [], userSkills = []) {
+  const requiredTokens = requiredSkills.flatMap(tokenize);
+  const userTokens = userSkills.flatMap(tokenize);
+
+  return requiredTokens.some(req =>
+    userTokens.some(user =>
+      user.startsWith(req) || req.startsWith(user)
+    )
+  );
+}
+
+/* =========================
+   GET /api/user/:id
+========================= */
+export async function GET(req, { params }) {
+  try {
     await dbConnect();
 
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader)
+    const decoded = getDecodedUser(req);
+    if (!decoded) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const token = authHeader.split(" ")[1];
-    if (!token)
-      return NextResponse.json({ error: "Token missing" }, { status: 401 });
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (err) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    if (decoded.id !== id)
+    const { id } = params;
+
+    if (decoded.id !== id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const user = await User.findById(id)
+      .select("-password -__v")
+      .lean();
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ user }, { status: 200 });
+  } catch (err) {
+    console.error("GET user error:", err);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+/* =========================
+   PUT /api/user/:id
+========================= */
+export async function PUT(req, { params }) {
+  try {
+    await dbConnect();
+
+    const decoded = getDecodedUser(req);
+    if (!decoded) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = params;
+
+    if (decoded.id !== id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const body = await req.json();
-    const { name, email, skills, projects, description, profilePhoto } = body;
+
+    /* ---- WHITELIST UPDATES ---- */
+    const allowedUpdates = {
+      name: body.name,
+      email: body.email,
+      skills: Array.isArray(body.skills)
+        ? body.skills.map(normalizeSkill)
+        : undefined,
+      projects: body.projects,
+      description: body.description,
+      profilePhoto: body.profilePhoto,
+    };
+
+    Object.keys(allowedUpdates).forEach(
+      key => allowedUpdates[key] === undefined && delete allowedUpdates[key]
+    );
 
     const updatedUser = await User.findByIdAndUpdate(
       id,
-      { name, email, skills, projects, description, profilePhoto },
-      { new: true, runValidators: true }
-    ).select("-password");
+      { $set: allowedUpdates },
+      {
+        new: true,
+        runValidators: true,
+        context: "query",
+      }
+    )
+      .select("-password -__v")
+      .lean();
 
-    if (!updatedUser)
+    if (!updatedUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
 
     return NextResponse.json({ user: updatedUser }, { status: 200 });
   } catch (err) {
-    console.error("PUT User error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("PUT user error:", err);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
+}
+
+/* =========================
+   SKILL ALERT MATCH EXPORT
+   (USE THIS IN QUERY ROUTE)
+========================= */
+export async function findUsersByHalfSkillMatch({
+  requiredSkills = [],
+  excludeUserId,
+}) {
+  await dbConnect();
+
+  const users = await User.find({
+    _id: { $ne: excludeUserId },
+    verified: true,
+    email: { $exists: true, $ne: "" },
+  })
+    .select("email name skills")
+    .lean();
+
+  return users.filter(user =>
+    hasHalfMatch(requiredSkills, user.skills || [])
+  );
 }
