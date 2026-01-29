@@ -13,16 +13,13 @@ const COOKIE_OPTS = {
   secure: process.env.NODE_ENV === "production",
   sameSite: "strict",
   path: "/",
-  maxAge: 60 * 60 * 24 * 7, // 7 days
+  maxAge: 60 * 60 * 24 * 7,
 };
 
 /* =====================================================
    Helpers
 ===================================================== */
 
-/**
- * Ensures consistent { success, data | error } shape
- */
 async function safe(fn) {
   try {
     const data = await fn();
@@ -36,9 +33,6 @@ async function safe(fn) {
   }
 }
 
-/**
- * Reads JWT from httpOnly cookie and returns Authorization header
- */
 async function getAuthHeader() {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
@@ -51,7 +45,7 @@ async function getAuthHeader() {
 }
 
 /* =====================================================
-   AUTH ACTIONS
+   AUTH ACTIONS (already correct)
 ===================================================== */
 
 export async function loginAction(payload) {
@@ -106,34 +100,12 @@ export async function logoutAction() {
 }
 
 /* =====================================================
-   FORGOT / RESET PASSWORD (OTP BASED)
-===================================================== */
-
-export async function forgotPasswordAction(payload) {
-  return safe(async () => {
-    return gatewayClient("auth/PassForgot", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-  });
-}
-
-export async function resetPasswordAction(payload) {
-  return safe(async () => {
-    return gatewayClient("auth/resetpass", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-  });
-}
-
-/* =====================================================
-   USER / PROFILE ACTIONS
+   USER / PROFILE ACTIONS (FIXED)
 ===================================================== */
 
 export async function fetchUserAction(userId) {
   return safe(async () => {
-    return gatewayClient(`api/user/${userId}`, {
+    return gatewayClient(`user/${userId}`, {
       headers: await getAuthHeader(),
     });
   });
@@ -141,7 +113,7 @@ export async function fetchUserAction(userId) {
 
 export async function updateUserAction(userId, payload) {
   return safe(async () => {
-    return gatewayClient(`api/user/${userId}`, {
+    return gatewayClient(`user/${userId}`, {
       method: "PUT",
       headers: await getAuthHeader(),
       body: JSON.stringify(payload),
@@ -151,7 +123,7 @@ export async function updateUserAction(userId, payload) {
 
 export async function updatePasswordAction(userId, payload) {
   return safe(async () => {
-    return gatewayClient(`api/user/${userId}/password`, {
+    return gatewayClient(`user/${userId}/password`, {
       method: "PUT",
       headers: await getAuthHeader(),
       body: JSON.stringify(payload),
@@ -160,7 +132,7 @@ export async function updatePasswordAction(userId, payload) {
 }
 
 /* =====================================================
-   QUERY ACTIONS
+   QUERY ACTIONS (FIXED)
 ===================================================== */
 
 export async function fetchQueriesAction(view) {
@@ -168,7 +140,7 @@ export async function fetchQueriesAction(view) {
     const params = new URLSearchParams();
     if (view) params.append("view", view);
 
-    return gatewayClient(`api/query?${params.toString()}`, {
+    return gatewayClient(`query?${params.toString()}`, {
       headers: await getAuthHeader(),
     });
   });
@@ -176,7 +148,7 @@ export async function fetchQueriesAction(view) {
 
 export async function fetchQueryDetailAction(queryId) {
   return safe(async () => {
-    return gatewayClient(`api/query/${queryId}`, {
+    return gatewayClient(`query/${queryId}`, {
       headers: await getAuthHeader(),
     });
   });
@@ -184,7 +156,7 @@ export async function fetchQueryDetailAction(queryId) {
 
 export async function postQueryAction(payload) {
   return safe(async () => {
-    return gatewayClient("api/query", {
+    return gatewayClient("query", {
       method: "POST",
       headers: await getAuthHeader(),
       body: JSON.stringify(payload),
@@ -194,7 +166,7 @@ export async function postQueryAction(payload) {
 
 export async function answerQueryAction(queryId, payload) {
   return safe(async () => {
-    return gatewayClient(`api/query/${queryId}/answer`, {
+    return gatewayClient(`query/${queryId}/answer`, {
       method: "POST",
       headers: await getAuthHeader(),
       body: JSON.stringify(payload),
@@ -204,7 +176,7 @@ export async function answerQueryAction(queryId, payload) {
 
 export async function feedbackQueryAction(queryId, payload) {
   return safe(async () => {
-    return gatewayClient(`api/query/${queryId}/feedback`, {
+    return gatewayClient(`query/${queryId}/feedback`, {
       method: "PUT",
       headers: await getAuthHeader(),
       body: JSON.stringify(payload),
@@ -213,13 +185,13 @@ export async function feedbackQueryAction(queryId, payload) {
 }
 
 /* =====================================================
-   CONNECT / SEARCH ACTIONS
+   CONNECT / SEARCH ACTIONS (FIXED)
 ===================================================== */
 
 export async function searchUsersAction(term) {
   return safe(async () => {
     const params = new URLSearchParams({ query: term });
-    return gatewayClient(`api/search?${params.toString()}`, {
+    return gatewayClient(`search?${params.toString()}`, {
       headers: await getAuthHeader(),
     });
   });
@@ -227,7 +199,7 @@ export async function searchUsersAction(term) {
 
 export async function requestConnectionAction(receiverId) {
   return safe(async () => {
-    return gatewayClient("api/connect", {
+    return gatewayClient("connect", {
       method: "POST",
       headers: await getAuthHeader(),
       body: JSON.stringify({ receiverId }),
@@ -237,7 +209,7 @@ export async function requestConnectionAction(receiverId) {
 
 export async function fetchConnectionsAction() {
   return safe(async () => {
-    return gatewayClient("api/connect", {
+    return gatewayClient("connect", {
       headers: await getAuthHeader(),
     });
   });
@@ -245,7 +217,7 @@ export async function fetchConnectionsAction() {
 
 export async function respondConnectionAction(action, requestId) {
   return safe(async () => {
-    return gatewayClient("api/connect", {
+    return gatewayClient("connect", {
       method: "PUT",
       headers: await getAuthHeader(),
       body: JSON.stringify({ action, requestId }),
@@ -254,12 +226,12 @@ export async function respondConnectionAction(action, requestId) {
 }
 
 /* =====================================================
-   CHAT ACTIONS
+   CHAT ACTIONS (FIXED)
 ===================================================== */
 
 export async function fetchConversationsAction() {
   return safe(async () => {
-    return gatewayClient("api/chat/conversations", {
+    return gatewayClient("chat/conversations", {
       headers: await getAuthHeader(),
     });
   });
@@ -267,7 +239,7 @@ export async function fetchConversationsAction() {
 
 export async function startConversationAction(receiverId) {
   return safe(async () => {
-    return gatewayClient("api/chat/conversations", {
+    return gatewayClient("chat/conversations", {
       method: "POST",
       headers: await getAuthHeader(),
       body: JSON.stringify({ receiverId }),
@@ -278,7 +250,7 @@ export async function startConversationAction(receiverId) {
 export async function fetchMessagesAction(conversationId, params = {}) {
   return safe(async () => {
     const qs = new URLSearchParams(params);
-    return gatewayClient(`api/chat/${conversationId}?${qs.toString()}`, {
+    return gatewayClient(`chat/${conversationId}?${qs.toString()}`, {
       headers: await getAuthHeader(),
     });
   });
@@ -286,7 +258,7 @@ export async function fetchMessagesAction(conversationId, params = {}) {
 
 export async function sendMessageAction(conversationId, content, tempId) {
   return safe(async () => {
-    return gatewayClient(`api/chat/${conversationId}`, {
+    return gatewayClient(`chat/${conversationId}`, {
       method: "POST",
       headers: await getAuthHeader(),
       body: JSON.stringify({ content, tempId }),
@@ -295,12 +267,12 @@ export async function sendMessageAction(conversationId, content, tempId) {
 }
 
 /* =====================================================
-   NOTIFICATION ACTIONS
+   NOTIFICATIONS (FIXED)
 ===================================================== */
 
 export async function fetchUnreadNotificationsAction() {
   return safe(async () => {
-    return gatewayClient("api/notifications/unread", {
+    return gatewayClient("notifications/unread", {
       headers: await getAuthHeader(),
     });
   });
